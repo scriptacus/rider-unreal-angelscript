@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Extract version from tag
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Update gradle.properties version
+        shell: bash
+        run: |
+          sed -i 's/^pluginVersion=.*/pluginVersion=${{ steps.get_version.outputs.VERSION }}/' gradle.properties
+          sed -i 's/^buildConfiguration=.*/buildConfiguration=Release/' gradle.properties
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            third-party/vscode-unreal-angelscript/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        shell: bash
+
+      - name: Build plugin
+        run: ./gradlew buildPlugin --no-daemon --stacktrace
+        shell: bash
+
+      - name: Verify build outputs
+        shell: bash
+        run: |
+          if [ ! -f "output/rider-unreal-angelscript-${{ steps.get_version.outputs.VERSION }}.zip" ]; then
+            echo "Error: Plugin ZIP not found!"
+            exit 1
+          fi
+          if [ ! -f "output/Scriptacus.RiderUnrealAngelscript.${{ steps.get_version.outputs.VERSION }}.nupkg" ]; then
+            echo "Error: NuGet package not found!"
+            exit 1
+          fi
+          echo "Build artifacts verified:"
+          ls -lh output/
+
+      - name: Extract changelog for this version
+        id: changelog
+        shell: bash
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          # Extract the section for this version from CHANGELOG.md
+          CHANGELOG=$(awk "/## ${VERSION}/,/^## [0-9]/" CHANGELOG.md | sed '1d;$d' | sed '/^$/d')
+
+          # If changelog is empty, use a default message
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="Release version ${VERSION}"
+          fi
+
+          # Save to file for multiline content
+          echo "$CHANGELOG" > changelog_body.txt
+
+          echo "Extracted changelog:"
+          cat changelog_body.txt
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.get_version.outputs.VERSION }}"
+          body_path: changelog_body.txt
+          draft: false
+          prerelease: false
+          files: |
+            output/rider-unreal-angelscript-${{ steps.get_version.outputs.VERSION }}.zip
+            output/Scriptacus.RiderUnrealAngelscript.${{ steps.get_version.outputs.VERSION }}.nupkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-artifacts
+          path: |
+            output/*.zip
+            output/*.nupkg
+          retention-days: 90
