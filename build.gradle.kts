@@ -183,9 +183,26 @@ tasks.buildPlugin {
     val execOps = project.objects.newInstance<InjectedExecOps>().execOps
 
     doLast {
+        val zipFile = file("${layout.buildDirectory.get()}/distributions/${projectName}-${projectVersion}.zip")
+        val outputDir = file("${rootPath}/output")
+
+        println("Looking for ZIP file at: ${zipFile.absolutePath}")
+        println("ZIP file exists: ${zipFile.exists()}")
+        println("Copying to: ${outputDir.absolutePath}")
+
+        if (!outputDir.exists()) {
+            outputDir.mkdirs()
+        }
+
         copy {
-            from("${layout.buildDirectory}/distributions/${projectName}-${projectVersion}.zip")
-            into("${rootPath}/output")
+            from(zipFile)
+            into(outputDir)
+        }
+
+        val copiedFile = file("${outputDir}/${projectName}-${projectVersion}.zip")
+        println("Copied file exists: ${copiedFile.exists()}")
+        if (!copiedFile.exists()) {
+            throw GradleException("Failed to copy plugin ZIP to output directory")
         }
 
         // TODO: See also org.jetbrains.changelog: https://github.com/JetBrains/gradle-changelog-plugin
