@@ -39,11 +39,14 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
-      - name: Update gradle.properties version
+      - name: Create gradle.properties from template
         shell: bash
         run: |
+          cp gradle.properties.template gradle.properties
           sed -i 's/^pluginVersion=.*/pluginVersion=${{ steps.get_version.outputs.VERSION }}/' gradle.properties
           sed -i 's/^buildConfiguration=.*/buildConfiguration=Release/' gradle.properties
+          echo "Created gradle.properties with version ${{ steps.get_version.outputs.VERSION }}"
+          cat gradle.properties
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
