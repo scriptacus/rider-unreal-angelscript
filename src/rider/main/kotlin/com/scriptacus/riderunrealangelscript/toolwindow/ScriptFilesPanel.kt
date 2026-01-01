@@ -6,6 +6,8 @@ import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.FileEditorManagerEvent
+import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
@@ -60,6 +62,7 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     companion object {
         private const val EXPANDED_PATHS_KEY = "angelscript.files.tree.expanded"
+        private const val AUTOSCROLL_FROM_SOURCE_KEY = "angelscript.files.autoscroll.from.source"
     }
 
     init {
@@ -124,6 +127,9 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         // Set up VFS listeners for automatic refresh
         setupVfsListeners()
+
+        // Set up file editor listener for auto-scroll from source
+        setupFileEditorListener()
 
         // Set up keyboard shortcuts
         setupKeyboardShortcuts()
@@ -238,6 +244,30 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
         })
     }
 
+    private fun setupFileEditorListener() {
+        val connection = project.messageBus.connect()
+
+        connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
+            override fun selectionChanged(event: FileEditorManagerEvent) {
+                if (isAutoscrollFromSource()) {
+                    ApplicationManager.getApplication().invokeLater {
+                        if (!project.isDisposed && isShowing) {
+                            selectOpenedFile()
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    fun isAutoscrollFromSource(): Boolean {
+        return properties.getBoolean(AUTOSCROLL_FROM_SOURCE_KEY, false)
+    }
+
+    fun setAutoscrollFromSource(enabled: Boolean) {
+        properties.setValue(AUTOSCROLL_FROM_SOURCE_KEY, enabled)
+    }
+
     private fun isInScriptFolder(file: VirtualFile): Boolean {
         var current: VirtualFile? = file
         while (current != null) {
@@ -299,21 +329,27 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         val allProjectFiles = mutableListOf<ProjectFileInfo>()
 
-        VfsUtil.visitChildrenRecursively(baseDir, object : VirtualFileVisitor<Unit>() {
-            override fun visitFile(file: VirtualFile): Boolean {
-                if (!file.isDirectory && (file.extension == "uproject" || file.extension == "uplugin")) {
-                    val parentDir = file.parent
-                    if (parentDir != null) {
-                        val scriptFolder = parentDir.findChild("Script")
-                        if (scriptFolder != null && scriptFolder.isDirectory && containsAngelScriptFiles(scriptFolder)) {
-                            allProjectFiles.add(ProjectFileInfo(file, scriptFolder))
-                            scriptFolders.add(scriptFolder)
+        // Check if the base directory itself is a Script folder
+        val isBaseDirScriptFolder = (baseDir.name == "Script" || containsAngelScriptFiles(baseDir))
+
+        if (!isBaseDirScriptFolder) {
+            // Normal case: search for .uproject/.uplugin files with Script folders
+            VfsUtil.visitChildrenRecursively(baseDir, object : VirtualFileVisitor<Unit>() {
+                override fun visitFile(file: VirtualFile): Boolean {
+                    if (!file.isDirectory && (file.extension == "uproject" || file.extension == "uplugin")) {
+                        val parentDir = file.parent
+                        if (parentDir != null) {
+                            val scriptFolder = parentDir.findChild("Script")
+                            if (scriptFolder != null && scriptFolder.isDirectory && containsAngelScriptFiles(scriptFolder)) {
+                                allProjectFiles.add(ProjectFileInfo(file, scriptFolder))
+                                scriptFolders.add(scriptFolder)
+                            }
                         }
                     }
+                    return true
                 }
-                return true
-            }
-        })
+            })
+        }
 
         // Find the .uproject file(s)
         val uprojectFiles = allProjectFiles.filter { it.file.extension == "uproject" }
@@ -344,6 +380,18 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
             val projectName = file.parent?.name ?: file.nameWithoutExtension
 
             ScriptInfo(scriptFolder, file, projectName, isEnginePlugin, isProjectPlugin)
+        }
+
+        // Handle standalone Script folder (opened directly)
+        if (scriptInfos.isEmpty() && isBaseDirScriptFolder) {
+            // The project root is itself a Script folder
+            scriptFolders.add(baseDir)
+            val scriptNode = DefaultMutableTreeNode(FileNode(baseDir, baseDir.name))
+            rootNode.add(scriptNode)
+            addChildren(scriptNode, baseDir)
+            treeModel.reload()
+            restoreExpandedState()
+            return
         }
 
         if (scriptInfos.isEmpty()) {

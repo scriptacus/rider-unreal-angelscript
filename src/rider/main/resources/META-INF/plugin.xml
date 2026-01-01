@@ -83,6 +83,9 @@
 
         <!-- Send initial LSP configuration when project opens -->
         <postStartupActivity implementation="com.scriptacus.riderunrealangelscript.lsp.AngelScriptLspInitializer"/>
+
+        <!-- Auto-switch between AngelScript Files and Solution Explorer tool windows -->
+        <postStartupActivity implementation="com.scriptacus.riderunrealangelscript.toolwindow.ToolWindowSwitcher"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">

@@ -21,10 +21,10 @@ class ScriptFilesToolWindowFactory : ToolWindowFactory {
         toolWindow.contentManager.addContent(content)
 
         // Add actions to tool window title bar
-        val actionGroup = DefaultActionGroup()
+        val titleActionGroup = DefaultActionGroup()
 
-        // Select Opened File action
-        actionGroup.add(object : AnAction(
+        // Select Opened File action (title bar button)
+        titleActionGroup.add(object : AnAction(
             "Select Opened File",
             "Scroll to currently opened file",
             AllIcons.General.Locate
@@ -43,6 +43,54 @@ class ScriptFilesToolWindowFactory : ToolWindowFactory {
         })
 
         // Set the action group as the tool window's title actions
-        toolWindow.setTitleActions(listOf(actionGroup))
+        toolWindow.setTitleActions(listOf(titleActionGroup))
+
+        // Add gear menu actions (appears under 3 dots)
+        toolWindow.setAdditionalGearActions(DefaultActionGroup().apply {
+            // Behavior submenu
+            add(DefaultActionGroup("Behavior", true).apply {
+                // Always Select Opened File toggle action
+                add(object : com.intellij.openapi.actionSystem.ToggleAction(
+                    "Always Select Opened File",
+                    "Automatically scroll to the file when you open it in the editor",
+                    null
+                ) {
+                    override fun isSelected(e: AnActionEvent): Boolean {
+                        return panel.isAutoscrollFromSource()
+                    }
+
+                    override fun setSelected(e: AnActionEvent, state: Boolean) {
+                        panel.setAutoscrollFromSource(state)
+                        if (state) {
+                            // Immediately select the currently opened file when enabled
+                            panel.selectOpenedFile()
+                        }
+                    }
+
+                    override fun getActionUpdateThread(): ActionUpdateThread {
+                        return ActionUpdateThread.BGT
+                    }
+                })
+
+                // Auto-Switch Tool Windows toggle action
+                add(object : com.intellij.openapi.actionSystem.ToggleAction(
+                    "Auto-Switch Tool Windows",
+                    "Automatically switch between AngelScript Files and Solution Explorer based on file type",
+                    null
+                ) {
+                    override fun isSelected(e: AnActionEvent): Boolean {
+                        return ToolWindowSwitcher.isAutoSwitchEnabled(project)
+                    }
+
+                    override fun setSelected(e: AnActionEvent, state: Boolean) {
+                        ToolWindowSwitcher.setAutoSwitchEnabled(project, state)
+                    }
+
+                    override fun getActionUpdateThread(): ActionUpdateThread {
+                        return ActionUpdateThread.BGT
+                    }
+                })
+            })
+        })
     }
 }
