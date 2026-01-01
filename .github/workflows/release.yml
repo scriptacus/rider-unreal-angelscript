@@ -79,6 +79,16 @@ jobs:
         run: ./gradlew buildPlugin --no-daemon --stacktrace
         shell: bash
 
+      - name: Debug - List output directory
+        if: always()
+        shell: bash
+        run: |
+          echo "Contents of output directory:"
+          ls -lah output/ || echo "output/ directory does not exist"
+          echo ""
+          echo "Contents of build/distributions:"
+          ls -lah build/distributions/ || echo "build/distributions/ does not exist"
+
       - name: Verify build outputs
         shell: bash
         run: |
