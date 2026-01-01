@@ -43,6 +43,9 @@ jobs:
         shell: bash
         run: |
           cp gradle.properties.template gradle.properties
+          # Remove the hardcoded Java home path - GitHub Actions sets up Java correctly
+          sed -i '/^org.gradle.java.home=/d' gradle.properties
+          # Update version and build configuration
           sed -i 's/^pluginVersion=.*/pluginVersion=${{ steps.get_version.outputs.VERSION }}/' gradle.properties
           sed -i 's/^buildConfiguration=.*/buildConfiguration=Release/' gradle.properties
           echo "Created gradle.properties with version ${{ steps.get_version.outputs.VERSION }}"
