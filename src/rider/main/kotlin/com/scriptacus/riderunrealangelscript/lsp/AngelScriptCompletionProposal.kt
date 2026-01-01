@@ -168,6 +168,11 @@ class AngelScriptCompletionProposal(
         /**
          * Apply text edits with stable sorting.
          * This is a copy of LSPIJUtils.doApplyEdits() but with a stable comparator.
+         *
+         * IMPORTANT: For completion, the first edit in the list is ALWAYS the MAIN textEdit
+         * that replaces the completion prefix. The caret should be positioned at the END of
+         * this main edit. Additional edits (like adding imports or decorators) should NOT
+         * affect caret positioning.
          */
         private fun applyEditsWithStableSort(
             editor: Editor?,
@@ -199,43 +204,32 @@ class AngelScriptCompletionProposal(
 
             if (pairs.isEmpty()) return
 
-            val oldCaretOffset = editor?.caretModel?.offset ?: -1
-            var newCaretOffset = oldCaretOffset
+            // Track the main textEdit (always first) to position caret at its end
+            val mainTextEdit = edits.firstOrNull()
+            var caretMarker: RangeMarker? = null
 
             // Apply each edit
             for ((edit, marker) in pairs) {
-                val increment = applyEdit(marker.startOffset, marker.endOffset, edit.newText, document, oldCaretOffset)
-                if (newCaretOffset != -1) {
-                    newCaretOffset += increment
+                val startOffset = marker.startOffset
+                val endOffset = marker.endOffset
+                val newText = edit.newText ?: ""
+
+                document.replaceString(startOffset, endOffset, newText)
+
+                // If this is the main textEdit, create a marker to track the caret position
+                // The marker will automatically adjust as subsequent edits are applied
+                if (mainTextEdit != null && edit === mainTextEdit) {
+                    val caretPosition = startOffset + newText.length
+                    caretMarker = document.createRangeMarker(caretPosition, caretPosition)
                 }
+
                 marker.dispose()
             }
 
-            if (newCaretOffset > -1 && oldCaretOffset != newCaretOffset) {
-                editor?.caretModel?.moveToOffset(newCaretOffset)
-            }
-        }
-
-        /**
-         * Apply a single text edit (copied from LSPIJUtils.applyEdit).
-         */
-        private fun applyEdit(
-            start: Int,
-            end: Int,
-            newText: String?,
-            document: Document,
-            caretOffset: Int
-        ): Int {
-            val text = newText ?: ""
-            document.replaceString(start, end, text)
-
-            // Calculate increment for caret adjustment
-            return if (caretOffset != -1 && start < caretOffset) {
-                val oldLength = end - start
-                val newLength = text.length
-                newLength - oldLength
-            } else {
-                0
+            // Move caret to end of main textEdit (marker has been adjusted for all edits)
+            if (caretMarker != null && editor != null) {
+                editor.caretModel.moveToOffset(caretMarker.startOffset)
+                caretMarker.dispose()
             }
         }
     }

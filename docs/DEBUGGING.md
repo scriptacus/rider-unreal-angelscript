@@ -27,9 +27,13 @@ This guide explains how to set up and use debugging for AngelScript code in your
 2. Click the **+** button and select **Debug Adapter Protocol**
 3. Give it a name like "Debug AngelScript"
 
-### Step 2: Save the Configuration
+### Step 2: Configure the Debug Adapter
 
-No additional configuration should be necessary.
+1. In the configuration dialog, locate the **Server** dropdown
+2. Select **AngelScript Debug Adapter** from the list
+   - If you don't see this option, make sure the plugin is installed and Rider has been restarted
+
+### Step 3: Save the Configuration
 
 Click **OK** to save your debug configuration.
 
