@@ -1,0 +1,109 @@
+<idea-plugin require-restart="true">
+    <id>com.scriptacus.rider-unreal-angelscript</id>
+    <name>Rider Unreal Angelscript</name>
+    <version>0.9.0</version>
+    <vendor url="https://github.com/scriptacus/rider-unreal-angelscript">scriptacus</vendor>
+
+    <idea-version since-build="232"/>
+
+    <depends>com.intellij.modules.rider</depends>
+<!--    <depends>com.intellij.modules.lang</depends>-->
+    <depends>com.redhat.devtools.lsp4ij</depends>
+    <depends>org.jetbrains.plugins.textmate</depends>
+    <depends>JavaScript</depends><!-- For NodeJS interpreter discovery -->
+
+    <description>
+        <![CDATA[
+        Provides language support for AngelScript in Unreal Engine projects.
+        ]]>
+    </description>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptFileType" language="angelscript" extensions="as;ash"/>
+        <lang.language id="angelscript" displayName="AngelScript"/>
+        <!-- Automatically detect and index AngelScript Script folders (preserves full highlighting) -->
+        <indexedRootsProvider implementation="com.scriptacus.riderunrealangelscript.project.AngelScriptFolderDetector"/>
+        <!-- Parser and basic syntax highlighter provide immediate highlighting -->
+        <lang.parserDefinition language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptSyntaxHighlighterFactory"/>
+        <!-- Color settings page allows users to customize syntax highlighting colors -->
+        <colorSettingsPage implementation="com.scriptacus.riderunrealangelscript.lang.AngelScriptColorSettingsPage"/>
+        <!-- Brace matching for {}, [], and () -->
+        <lang.braceMatcher language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptBraceMatcher"/>
+        <!-- Comment actions (Ctrl+/ for line, Ctrl+Shift+/ for block) -->
+        <lang.commenter language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptCommenter"/>
+        <!-- LSP semantic tokens enhance highlighting when connected -->
+        <!-- Parameter info popup for function signatures -->
+        <codeInsight.parameterInfo language="angelscript"
+                                    implementationClass="com.redhat.devtools.lsp4ij.features.signatureHelp.LSPParameterInfoHandler"/>
+        <!-- Document symbols for Structure View (Ctrl+F12) -->
+        <lang.psiStructureViewFactory language="angelscript"
+                                       implementationClass="com.redhat.devtools.lsp4ij.features.documentSymbol.LSPDocumentSymbolStructureViewFactory"/>
+        <!-- Type hierarchy navigation (Ctrl+H) -->
+        <typeHierarchyProvider language="angelscript"
+                               implementationClass="com.redhat.devtools.lsp4ij.features.typeHierarchy.LSPTypeHierarchyProvider"/>
+        <!-- Automatic paired bracket insertion -->
+        <typedHandler implementation="com.scriptacus.riderunrealangelscript.lang.AngelScriptTypedHandler"/>
+        <!-- Code formatter for Format Code action and auto-formatting -->
+        <lang.formatter language="angelscript"
+                        implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptFormattingModelBuilder"/>
+
+        <!-- Settings/Preferences UI for AngelScript plugin -->
+        <applicationConfigurable
+            parentId="language"
+            instance="com.scriptacus.riderunrealangelscript.settings.AngelScriptSettingsConfigurable"
+            displayName="AngelScript"/>
+
+        <applicationService
+            serviceImplementation="com.scriptacus.riderunrealangelscript.settings.AngelScriptLspSettings"/>
+
+        <!-- Debug inline values: shows variable values inline during debugging -->
+        <codeInsight.declarativeInlayProviderFactory
+            implementation="com.scriptacus.riderunrealangelscript.debug.AngelScriptDebugInlayHintsProviderFactory"/>
+
+        <!-- AngelScript API Browser tool window -->
+        <toolWindow
+            id="Unreal AngelScript API"
+            factoryClass="com.scriptacus.riderunrealangelscript.toolwindow.ApiToolWindowFactory"
+            anchor="right"
+            secondary="true"
+            canCloseContents="false"
+            doNotActivateOnStart="true"
+            icon="com.scriptacus.riderunrealangelscript.AngelScriptIcons.ToolWindow"/>
+
+        <!-- AngelScript Script Files tree window -->
+        <toolWindow
+            id="AngelScript Files"
+            factoryClass="com.scriptacus.riderunrealangelscript.toolwindow.ScriptFilesToolWindowFactory"
+            anchor="left"
+            secondary="false"
+            canCloseContents="false"
+            doNotActivateOnStart="true"
+            icon="com.scriptacus.riderunrealangelscript.AngelScriptIcons.FileIcon"/>
+
+        <!-- Send initial LSP configuration when project opens -->
+        <postStartupActivity implementation="com.scriptacus.riderunrealangelscript.lsp.AngelScriptLspInitializer"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
+        <server id="angelscript-lsp" factoryClass="com.scriptacus.riderunrealangelscript.lsp.AngelScriptLanguageServerFactory"/>
+        <languageMapping language="angelscript" serverId="angelscript-lsp" documentMatcher="com.scriptacus.riderunrealangelscript.lsp.AngelScriptDocumentMatcher"/>
+        <semanticTokensColorsProvider serverId="angelscript-lsp" class="com.scriptacus.riderunrealangelscript.lang.AngelScriptSemanticTokensColorsProvider"/>
+
+        <!-- Debug Adapter Protocol support -->
+        <debugAdapterServer
+            id="angelscript-dap"
+            name="AngelScript Debug Adapter"
+            factoryClass="com.scriptacus.riderunrealangelscript.debug.AngelScriptDebugAdapterDescriptorFactory"/>
+        <languageMapping language="angelscript" serverId="angelscript-dap"/>
+    </extensions>
+
+    <actions>
+        <!-- LSP command handler: no-op action to prevent "Missing command" error -->
+        <action id="angelscript.paren"
+                class="com.scriptacus.riderunrealangelscript.actions.AngelScriptParenAction"
+                text="AngelScript: Insert Parentheses"
+                description="Handles parenthesis insertion from LSP completion (currently no-op, relies on Rider's default behavior)"/>
+    </actions>
+
+</idea-plugin>

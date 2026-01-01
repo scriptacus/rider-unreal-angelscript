@@ -1,0 +1,1 @@
+asset MyMesh of UStaticMesh;

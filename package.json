@@ -1,0 +1,14 @@
+{
+  "name": "angelscript-rider-plugin-bundler",
+  "version": "1.0.0",
+  "description": "Bundles the AngelScript language server for the Rider plugin.",
+  "main": "scripts/bundle-lsp.js",
+  "scripts": {
+    "bundle": "node scripts/bundle-lsp.js && node scripts/bundle-dap.js",
+    "bundle:lsp": "node scripts/bundle-lsp.js",
+    "bundle:dap": "node scripts/bundle-dap.js"
+  },
+  "dependencies": {
+    "esbuild": "^0.14.39"
+  }
+}

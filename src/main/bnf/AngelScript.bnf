@@ -1,0 +1,737 @@
+{
+  // ────────────── Grammar-Kit Settings ──────────────
+  parserClass = "com.scriptacus.riderunrealangelscript.lang.parser.AngelScriptParser"
+  extends = "com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+  psiClassPrefix = "AngelScript"
+  psiImplClassSuffix = "Impl"
+  psiPackage = "com.scriptacus.riderunrealangelscript.lang.psi"
+  psiImplPackage = "com.scriptacus.riderunrealangelscript.lang.psi.impl"
+
+  elementTypeHolderClass = "com.scriptacus.riderunrealangelscript.lang.psi.AngelScriptTypes"
+  elementTypeClass = "com.scriptacus.riderunrealangelscript.lang.psi.AngelScriptElementType"
+  tokenTypeClass = "com.scriptacus.riderunrealangelscript.lang.psi.AngelScriptTokenType"
+
+  // Enable better error recovery
+  generate=[tokens="yes"]
+
+  // Expression PSI optimization - all expression rules extend root expr
+  extends(".*_expr|expression")=expr
+  // Binary operators extend binary_expr for polymorphic access
+  extends("(assign|ternary|logical_or|logical_and|bitwise_or|bitwise_xor|bitwise_and|equality|relational|shift|additive|multiplicative)_expr")=binary_expr
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// BNF:0 - SCRIPT (Top-Level Structure)
+// ════════════════════════════════════════════════════════════════════════════════
+// Official: SCRIPT ::= {IMPORT | ENUM | TYPEDEF | CLASS | MIXIN | LOCAL | INTERFACE | FUNCDEF | VIRTPROP | VAR | FUNC | NAMESPACE | ';'}
+// Extensions: Added Unreal-specific declarations (delegate_decl, event_decl, asset_decl, access_decl)
+// Note: Preprocessor directives (#if, #elif, etc.) are treated as comments by the lexer
+
+script ::= script_item*
+
+private script_item ::=
+    namespace_decl        // BNF:1 NAMESPACE
+  | class_decl            // BNF:1 CLASS
+  | struct_decl           // BNF:1 STRUCT (variant of CLASS)
+  | enum_decl             // BNF:1 ENUM
+  | global_function_decl  // BNF:1 FUNC (with optional UFUNCTION macro)
+  | variable_decl         // BNF:1 VAR
+  // Unreal-specific declarations (not in base AngelScript):
+  | delegate_decl         // Unreal extension
+  | event_decl            // Unreal extension
+  | asset_decl            // Unreal extension
+  | access_decl           // Unreal extension
+  | END_STATEMENT
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// BNF:1 - DECLARATIONS
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NAMESPACE Declaration
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:1: NAMESPACE ::= 'namespace' IDENTIFIER {'::' IDENTIFIER} '{' SCRIPT '}'
+// Note: Official grammar allows nested namespaces via :: syntax
+
+namespace_decl ::= NAMESPACE scoped_identifier namespace_body?
+
+// Unfinished pattern for error recovery (Solidity plugin approach)
+// Closing brace is optional to allow recovery when it's missing
+private unfinished_namespace_body ::= START_STATEMENT_BLOCK script_item* {
+    pin = 1
+    recoverWhile = UntilBraceRecover
+}
+
+namespace_body ::= unfinished_namespace_body END_STATEMENT_BLOCK?
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CLASS Declaration
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:1: CLASS ::= {'shared' | 'abstract' | 'final' | 'external'} 'class' IDENTIFIER
+//                  (';' | ([':' IDENTIFIER {',' IDENTIFIER}] '{' {VIRTPROP | FUNC | VAR | FUNCDEF} '}'))
+// Extensions: Added UCLASS() macro support (Unreal), simplified inheritance to single base
+
+class_decl ::= uclass_macro? CLASS IDENTIFIER class_inheritance? class_body?
+
+class_inheritance ::= COLON scoped_identifier
+
+// Unfinished pattern for error recovery (Solidity plugin approach)
+// Closing brace is optional to allow recovery when it's missing
+private unfinished_class_body ::= START_STATEMENT_BLOCK class_member* {
+    pin = 1
+    recoverWhile = UntilBraceRecover
+}
+
+class_body ::= unfinished_class_body END_STATEMENT_BLOCK?
+
+class_member ::=
+    access_decl                  // Unreal extension
+  | constructor_decl             // Constructor (must come before method to avoid ambiguity - no return type)
+  | destructor_decl              // Destructor (implicit in official grammar)
+  | class_method_decl            // BNF:1 FUNC (must come before property to avoid ambiguity)
+  | class_property_decl          // BNF:1 VAR (includes access_specifier)
+  | default_statement            // Unreal extension (default property values)
+
+class_property_decl ::= access_specifier? uproperty_macro? access_specifier? variable_decl
+
+// Lookahead to disambiguate methods from constructor-style variables
+// Variables: Type var(args);  <- ends with semicolon, no body
+// Methods: Type method(args) { } <- has body or qualifiers
+private not_constructor_variable ::= !(typename IDENTIFIER OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS END_STATEMENT)
+
+class_method_decl ::= not_constructor_variable access_specifier? ufunction_macro? access_specifier? (MIXIN | LOCAL)? function_decl
+
+// Unreal extension: Default property value assignments
+default_statement ::= DEFAULT expr END_STATEMENT
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// STRUCT Declaration
+// ──────────────────────────────────────────────────────────────────────────────
+// Note: In official AngelScript, struct is similar to class but with value semantics
+// Extensions: Added USTRUCT() macro support (Unreal)
+
+struct_decl ::= ustruct_macro? STRUCT IDENTIFIER struct_body?
+
+// Unfinished pattern for error recovery (Solidity plugin approach)
+// Closing brace is optional to allow recovery when it's missing
+private unfinished_struct_body ::= START_STATEMENT_BLOCK struct_member* {
+    pin = 1
+    recoverWhile = UntilBraceRecover
+}
+
+struct_body ::= unfinished_struct_body END_STATEMENT_BLOCK?
+
+struct_member ::=
+    constructor_decl             // Must come before class_method_decl to avoid ambiguity (no return type)
+  | destructor_decl              // Destructor (must come before class_method_decl to avoid ambiguity)
+  | class_method_decl            // Struct methods with optional access specifiers (same as class methods)
+  | struct_property_decl         // UPROPERTY support in structs (includes access_specifier)
+
+struct_property_decl ::= access_specifier? uproperty_macro? access_specifier? variable_decl
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ENUM Declaration
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:1: ENUM ::= {'shared' | 'external'} 'enum' IDENTIFIER (';' | ('{' ENUMVAL {',' ENUMVAL} '}'))
+// BNF:2: ENUMVAL ::= IDENTIFIER ['=' EXPR]
+// Extensions: Added UENUM() and UMETA() macro support (Unreal)
+
+enum_decl ::= uenum_macro? ENUM IDENTIFIER enum_body?
+
+enum_body ::= START_STATEMENT_BLOCK enum_value (LIST_SEPARATOR enum_value)* LIST_SEPARATOR? END_STATEMENT_BLOCK
+
+enum_value ::= IDENTIFIER (ASSIGNMENT expr)? umeta_macro?
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FUNCTION Declaration
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:1: FUNC ::= {'shared' | 'external' | 'final' | 'override'}
+//                 ['private' | 'protected'] [((TYPE ['&']) | '~')]
+//                 ['get' | 'set'] IDENTIFIER PARAMLIST ['const'] STATBLOCK
+// BNF:3: PARAMLIST ::= '(' ['void' | (TYPE TYPEMOD [IDENTIFIER] ['=' EXPR] {',' TYPE TYPEMOD [IDENTIFIER] ['=' EXPR]})] ')'
+// Note: Your implementation separates signature from body for clarity
+
+// Global/namespace-level function with optional UFUNCTION macro and MIXIN/LOCAL qualifiers
+// Note: Official AngelScript supports MIXIN and LOCAL at global scope (BNF:0 SCRIPT)
+global_function_decl ::= ufunction_macro? (MIXIN | LOCAL)? function_decl
+
+function_decl ::= function_signature function_body?
+
+function_signature ::= return_type IDENTIFIER OPEN_PARENTHESIS parameter_list CLOSE_PARENTHESIS function_qualifiers?
+
+return_type ::= VOID | typename
+
+function_qualifiers ::= function_qualifier+
+
+function_qualifier ::= CONST | FINAL | OVERRIDE | PROPERTY
+
+parameter_list ::= (parameter (LIST_SEPARATOR parameter)* LIST_SEPARATOR?)?
+
+// BNF:3: Parameter with type, optional modifier, optional name, optional default value
+parameter ::= typename ref_qualifier? IDENTIFIER? default_parameter_value?
+
+default_parameter_value ::= ASSIGNMENT expr
+
+// BNF:4: TYPEMOD ::= ['&' ['in' | 'out' | 'inout']]
+ref_qualifier ::= AMP (OUT | IN | INOUT)?
+
+// BNF:2: STATBLOCK ::= '{' {VAR | STATEMENT} '}'
+// Unfinished pattern for error recovery (Solidity plugin approach)
+// Closing brace is optional to allow recovery when it's missing
+private unfinished_function_body ::= START_STATEMENT_BLOCK statement* {
+    pin = 1
+    recoverWhile = UntilBraceRecover
+}
+
+function_body ::= unfinished_function_body END_STATEMENT_BLOCK?
+
+// Constructor: implicit in official grammar, uses class name
+constructor_decl ::= IDENTIFIER OPEN_PARENTHESIS parameter_list CLOSE_PARENTHESIS function_body?
+
+// Destructor: uses ~ prefix
+destructor_decl ::= BIT_NOT IDENTIFIER OPEN_PARENTHESIS CLOSE_PARENTHESIS function_body?
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// VARIABLE Declaration
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:1: VAR ::= ['private' | 'protected'] TYPE IDENTIFIER [('=' (INITLIST | ASSIGN)) | ARGLIST]
+//                {',' IDENTIFIER [('=' (INITLIST | ASSIGN)) | ARGLIST]} ';'
+// Note: Supports multiple declarators in one statement
+
+variable_decl ::= typename variable_declarator (LIST_SEPARATOR variable_declarator)* END_STATEMENT
+
+variable_declarator ::= IDENTIFIER (variable_initializer | variable_constructor)?
+
+variable_initializer ::= ASSIGNMENT expr
+
+// Constructor-style initialization: Type var(args)
+variable_constructor ::= OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Unreal-Specific Declarations (Not in Base AngelScript)
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Delegate: function pointer type with multicast support
+// Usage: delegate void OnEventDelegate(int param);
+delegate_decl ::= DELEGATE function_signature END_STATEMENT?
+
+// Event: virtual function that can be overridden and called from C++
+// Usage: event void OnDamaged(float amount);
+event_decl ::= EVENT function_signature END_STATEMENT
+
+// Asset: reference to Unreal asset type
+// Usage: asset UTexture2D MyTexture; or asset MySheet of UCapabilitySheet { statements }
+asset_decl ::= ASSET IDENTIFIER OF typename (END_STATEMENT | asset_body)?
+
+asset_body ::= START_STATEMENT_BLOCK statement* END_STATEMENT_BLOCK
+
+// Access: fine-grained access control for specific classes/methods
+// Usage: access Subclass = private Foo, protected Bar(readonly);
+access_decl ::= ACCESS IDENTIFIER ASSIGNMENT access_entry (LIST_SEPARATOR access_entry)* END_STATEMENT
+
+access_entry ::= access_level? access_class
+
+access_level ::= PRIVATE | PROTECTED | PUBLIC
+
+access_class ::= (IDENTIFIER | STAR | function_call) access_modifiers?
+
+access_modifiers ::= OPEN_PARENTHESIS access_modifier (LIST_SEPARATOR access_modifier)* CLOSE_PARENTHESIS
+
+access_modifier ::= IDENTIFIER  // readonly, inherited, editdefaults, etc.
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Access Specifiers (used in class/struct members)
+// ──────────────────────────────────────────────────────────────────────────────
+// Official: 'private' | 'protected'
+// Extensions: Added 'public' and 'access' (Unreal)
+
+access_specifier ::=
+    PRIVATE
+  | PROTECTED
+  | PUBLIC
+  | ACCESS (COLON IDENTIFIER)?
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// BNF:4-6 - TYPE SYSTEM
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Type Specification
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:4: TYPE ::= ['const'] SCOPE DATATYPE ['<' TYPE {',' TYPE} '>'] { ('[' [EXPR] ']') | '@' ['const'] }
+// BNF:5: DATATYPE ::= [SCOPE] IDENTIFIER { SCOPE IDENTIFIER }
+// BNF:5: SCOPE ::= ['::'] {IDENTIFIER '::'}
+// BNF:6: PRIMTYPE ::= 'void' | 'int' | ... | 'bool' | 'auto'
+// Note: Simplified to typename for clarity, handles const, templates, and ref qualifiers
+
+typename ::= CONST? (primitive_type | scoped_identifier) template_arguments? ref_qualifier?
+
+primitive_type ::=
+    VOID | BOOL | AUTO
+  | INT | INT8 | INT16 | INT32 | INT64
+  | UINT | UINT8 | UINT16 | UINT32 | UINT64
+  | FLOAT | FLOAT32 | FLOAT64 | DOUBLE
+
+// BNF:5: Scoped identifier with :: resolution
+scoped_identifier ::= SCOPE? IDENTIFIER (SCOPE IDENTIFIER)*
+
+// Template arguments: <Type1, Type2, ...>
+// Note: >> and >>> are not tokenized to allow nested templates like TArray<TArray<int>>
+template_arguments ::= LESS_THAN typename (LIST_SEPARATOR typename)* GREATER_THAN
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// BNF:7-9 - STATEMENTS
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Statement Types
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:7: STATEMENT ::= (IF | FOR | WHILE | RETURN | STATBLOCK | BREAK | CONTINUE | DOWHILE | SWITCH | EXPRSTAT)
+// Extensions: Added foreach_statement, fallthrough_statement
+
+statement ::=
+    if_statement              // BNF:8 IF
+  | while_statement           // BNF:8 WHILE
+  | for_statement             // BNF:8 FOR
+  | foreach_statement         // Unreal extension (foreach loop)
+  | switch_statement          // BNF:8 SWITCH
+  | return_statement          // BNF:8 RETURN
+  | break_statement           // BNF:8 BREAK
+  | continue_statement        // BNF:8 CONTINUE
+  | fallthrough_statement     // Unreal extension (explicit fallthrough)
+  | statement_block           // BNF:2 STATBLOCK
+  | variable_decl             // BNF:1 VAR (allowed in statement context)
+  | expression_statement      // BNF:8 EXPRSTAT
+  | END_STATEMENT
+
+// BNF:2: STATBLOCK ::= '{' {VAR | STATEMENT} '}'
+// Unfinished pattern for error recovery (Solidity plugin approach)
+// Closing brace is optional to allow recovery when it's missing
+private unfinished_statement_block ::= START_STATEMENT_BLOCK statement* {
+    pin = 1
+    recoverWhile = UntilBraceRecover
+}
+
+statement_block ::= unfinished_statement_block END_STATEMENT_BLOCK?
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Control Flow Statements
+// ──────────────────────────────────────────────────────────────────────────────
+
+// BNF:8: IF ::= 'if' '(' ASSIGN ')' STATEMENT ['else' STATEMENT]
+if_statement ::= IF OPEN_PARENTHESIS expr CLOSE_PARENTHESIS statement else_clause?
+
+else_clause ::= ELSE statement
+
+// BNF:8: WHILE ::= 'while' '(' ASSIGN ')' STATEMENT
+while_statement ::= WHILE OPEN_PARENTHESIS expr CLOSE_PARENTHESIS statement
+
+// BNF:8: FOR ::= 'for' '(' (VAR | EXPRSTAT) EXPRSTAT [ASSIGN {',' ASSIGN}] ')' STATEMENT
+// Note: for_init can be variable declaration or expression
+for_statement ::= FOR OPEN_PARENTHESIS for_init? END_STATEMENT expr? END_STATEMENT for_update? CLOSE_PARENTHESIS statement
+
+// for_init: Either variable declaration or expression
+for_init ::= for_variable_decl | expr
+
+// Like variable_decl but without END_STATEMENT (for loop init only)
+private for_variable_decl ::= typename variable_declarator (LIST_SEPARATOR variable_declarator)*
+
+// for_update: Comma-separated expressions
+for_update ::= expr (LIST_SEPARATOR expr)*
+
+// Foreach loop (Unreal extension, not in base AngelScript)
+// Usage: for (Type item : collection) { ... }
+foreach_statement ::= FOR OPEN_PARENTHESIS typename IDENTIFIER COLON expr CLOSE_PARENTHESIS statement
+
+// BNF:8: SWITCH ::= 'switch' '(' ASSIGN ')' '{' {CASE} '}'
+// BNF:9: CASE ::= (('case' EXPR) | 'default') ':' {STATEMENT}
+switch_statement ::= SWITCH OPEN_PARENTHESIS expr CLOSE_PARENTHESIS START_STATEMENT_BLOCK case_clause* END_STATEMENT_BLOCK
+
+case_clause ::= case_statement | default_case_statement
+
+case_statement ::= CASE expr COLON statement*
+
+default_case_statement ::= DEFAULT COLON statement*
+
+// BNF:8: RETURN ::= 'return' [ASSIGN] ';'
+return_statement ::= RETURN expr? END_STATEMENT
+
+// BNF:8: BREAK ::= 'break' ';'
+break_statement ::= BREAK END_STATEMENT
+
+// BNF:8: CONTINUE ::= 'continue' ';'
+continue_statement ::= CONTINUE END_STATEMENT
+
+// Fallthrough (Unreal extension): Explicit switch case fallthrough
+// Usage: case 1: DoSomething(); fallthrough; case 2: ...
+fallthrough_statement ::= FALLTHROUGH END_STATEMENT
+
+// BNF:8: EXPRSTAT ::= [ASSIGN] ';'
+expression_statement ::= expr END_STATEMENT
+
+
+// BNF:9-16 - EXPRESSIONS (Full Precedence Hierarchy)
+// ════════════════════════════════════════════════════════════════════════════════
+// Expression grammar uses Grammar-Kit's compact expression parsing to minimize PSI nodes.
+// All expression rules extend 'expr' and binary operators extend 'binary_expr'.
+// This automatically collapses redundant nodes - e.g., "42" creates 2 nodes instead of 16.
+
+// Fake binary_expr for polymorphic access to left/right operands
+fake binary_expr ::= expr + {
+  methods=[
+    left="/expr[0]"
+    right="/expr[1]"
+  ]
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Expression Entry Point (Flat Choice - activates Pratt parsing)
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:9: EXPR (entry point for expressions)
+
+expr ::=
+    assign_expr
+  | ternary_expr
+  | logical_or_expr
+  | logical_and_expr
+  | bitwise_or_expr
+  | bitwise_xor_expr
+  | bitwise_and_expr
+  | equality_expr
+  | shift_expr              // Must come before relational_expr to match >> before parsing as > >
+  | relational_expr
+  | additive_expr
+  | multiplicative_expr
+  | unary_expr
+  | postfix_expr
+  | primary_expr
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 1: Assignment (Lowest Precedence)
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:13: ASSIGN ::= CONDITION [ASSIGNOP ASSIGN]
+// BNF:16: ASSIGNOP ::= '=' | '+=' | '-=' | '*=' | '/=' | '|=' | '&=' | '^=' | '%=' | '**=' | '<<=' | '>>=' | '>>>='
+// Note: Right-associative (second ASSIGN, not ternary_expr)
+
+assign_expr ::= expr assignment_op expr { rightAssociative=true }
+
+private assignment_op ::=
+    ASSIGNMENT
+  | ADD_ASSIGN
+  | SUB_ASSIGN
+  | MUL_ASSIGN
+  | DIV_ASSIGN
+  | MOD_ASSIGN
+  | AND_ASSIGN
+  | OR_ASSIGN
+  | XOR_ASSIGN
+  | SHIFT_LEFT_ASSIGN
+  | SHIFT_RIGHT_L_ASSIGN
+  | SHIFT_RIGHT_A_ASSIGN
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 2: Ternary Conditional
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:14: CONDITION ::= EXPR ['?' ASSIGN ':' ASSIGN]
+// Note: Right-associative ternary operator
+
+ternary_expr ::= expr QUESTION expr COLON expr
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 3: Logical OR
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: LOGICOP includes '||'
+
+logical_or_expr ::= expr OR expr
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 4: Logical AND
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: LOGICOP includes '&&'
+
+logical_and_expr ::= expr AND expr
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 5: Bitwise OR
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: BITOP includes '|'
+
+bitwise_or_expr ::= expr BIT_OR expr
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 6: Bitwise XOR
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: BITOP includes '^'
+
+bitwise_xor_expr ::= expr BIT_XOR expr
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 7: Bitwise AND
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: BITOP includes '&'
+
+bitwise_and_expr ::= expr AMP expr
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 8: Equality Operators
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: COMPOP includes '==' and '!='
+
+equality_expr ::= expr equality_op expr
+
+private equality_op ::= EQUAL | NOT_EQUAL
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 9: Relational Operators
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: COMPOP includes '<', '>', '<=', '>=', 'is', '!is'
+
+relational_expr ::= expr relational_op expr
+
+private relational_op ::= LESS_THAN | GREATER_THAN | LESS_THAN_OR_EQUAL | GREATER_THAN_OR_EQUAL
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 10: Shift Operators
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: BITOP includes '<<', '>>', '>>>'
+// Note: >> and >>> are parsed as consecutive > tokens to allow nested templates
+
+shift_expr ::= expr shift_op expr
+
+private shift_op ::= BIT_SHIFT_LEFT | shift_right_arith | shift_right_logical
+
+// Right shift operators as consecutive > tokens
+private shift_right_arith ::= GREATER_THAN GREATER_THAN GREATER_THAN
+private shift_right_logical ::= GREATER_THAN GREATER_THAN
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 11: Additive Operators
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: MATHOP includes '+' and '-'
+
+additive_expr ::= expr additive_op expr
+
+private additive_op ::= PLUS | MINUS
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 12: Multiplicative Operators
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:16: MATHOP includes '*', '/', '%'
+// Note: Power operator '**' is not included here (higher precedence in some implementations)
+
+multiplicative_expr ::= expr multiplicative_op expr
+
+private multiplicative_op ::= STAR | SLASH | PERCENT
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 13: Unary Prefix Operators
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:11: EXPRPREOP ::= '-' | '+' | '!' | '++' | '--' | '~' | '@'
+
+unary_expr ::= unary_op expr
+
+private unary_op ::= PLUS | MINUS | NOT | BIT_NOT | INC | DEC
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 14: Postfix Operators
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:11: EXPRPOSTOP ::= '++' | '--' | '.' | '[' [ASSIGN [':' [ASSIGN]]] ']' | ARGLIST
+// BNF:10: EXPRTERM ::= EXPRVALUE {EXPRPOSTOP}
+
+postfix_expr ::= expr postfix_op+
+
+private postfix_op ::=
+    OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS  // Function call
+  | OPEN_BRACKET expr CLOSE_BRACKET                     // Array subscript
+  | DOT IDENTIFIER                                      // Member access
+  | INC                                                 // Post-increment
+  | DEC                                                 // Post-decrement
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Precedence Level 15: Primary Expressions (Highest Precedence)
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:11: EXPRVALUE ::= [EXPRPREOP] (VOID | CONSTRUCTCALL | FUNCCALL | VARACCESS | CAST | LITERAL | '(' ASSIGN ')' | LAMBDA)
+// BNF:12: LITERAL ::= NUMBER | STRING | BITS | 'true' | 'false' | 'null'
+// BNF:17: NUMBER, STRING, BITS (lexer tokens)
+
+primary_expr ::=
+    THIS                                                              // BNF: implicit
+  | TRUE                                                              // BNF:12 LITERAL
+  | FALSE                                                             // BNF:12 LITERAL
+  | NULLPTR                                                           // BNF:12 LITERAL (null)
+  | NUMBER                                                            // BNF:17 NUMBER
+  | string_literal                                                    // BNF:17 STRING
+  | fstring_literal                                                   // Unreal extension
+  | namestring_literal                                                // Unreal extension
+  | cast_expression                                                   // BNF:12 CAST
+  | constructor_call                                                  // BNF:11 CONSTRUCTCALL (must come before scoped_identifier)
+  | scoped_identifier                                                 // BNF:12 VARACCESS
+  | OPEN_PARENTHESIS expr CLOSE_PARENTHESIS                           // BNF:11 parenthesized expression
+  
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Special Expression Forms
+// ──────────────────────────────────────────────────────────────────────────────
+
+// BNF:12: CAST ::= 'cast' '<' TYPE '>' '(' ASSIGN ')'
+cast_expression ::= CAST LESS_THAN typename GREATER_THAN OPEN_PARENTHESIS expr CLOSE_PARENTHESIS
+
+// BNF:11: CONSTRUCTCALL ::= TYPE ARGLIST
+// Note: Constructor call looks like Type(args), including template types like TArray<int>()
+constructor_call ::= typename OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS {pin=2}
+
+// BNF:12: FUNCCALL ::= SCOPE IDENTIFIER ARGLIST
+// Note: Parsed as scoped_identifier + postfix_op (function call)
+function_call ::= scoped_identifier OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS
+
+// BNF:13: ARGLIST ::= '(' [IDENTIFIER ':'] ASSIGN {',' [IDENTIFIER ':'] ASSIGN} ')'
+// Note: Supports named arguments (Identifier: value) and trailing commas
+argument_list ::= argument (LIST_SEPARATOR argument)* LIST_SEPARATOR?
+
+argument ::= named_argument | expr
+
+named_argument ::= IDENTIFIER COLON expr
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// STRING LITERALS
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Standard String Literals
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:17: STRING ::= '"' {CHARACTER | ESCAPE} '"' | "'" {CHARACTER | ESCAPE} "'" | '"""' {CHARACTER} '"""'
+
+string_literal ::= STRING
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// F-String Literals (Unreal Extension)
+// ──────────────────────────────────────────────────────────────────────────────
+// Format strings with embedded expressions: f"Hello {name}"
+// Not in base AngelScript - Unreal extension for string formatting
+
+fstring_literal ::= FSTRING_BEGIN fstring_content* FSTRING_END
+
+fstring_content ::=
+    FSTRING_TEXT
+  | FSTRING_ESCAPED_LBRACE
+  | FSTRING_ESCAPED_RBRACE
+  | fstring_expression
+
+fstring_expression ::= FSTRING_EXPR_BEGIN expr fstring_format? FSTRING_EXPR_END
+
+fstring_format ::= (FSTRING_FORMAT_SEP | FSTRING_DEBUG_EQ) FSTRING_FORMAT_SPEC?
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Name String Literals (Unreal Extension)
+// ──────────────────────────────────────────────────────────────────────────────
+// FName literals: n"MyName"
+// Not in base AngelScript - Unreal extension for FName type
+
+namestring_literal ::= NAMESTRING_BEGIN NAMESTRING_TEXT? NAMESTRING_END
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// UNREAL MACROS (Not in Base AngelScript)
+// ════════════════════════════════════════════════════════════════════════════════
+// Unreal Engine reflection system macros for classes, properties, functions, etc.
+
+uproperty_macro ::= UPROPERTY OPEN_PARENTHESIS macro_arguments? CLOSE_PARENTHESIS
+
+ufunction_macro ::= UFUNCTION OPEN_PARENTHESIS macro_arguments? CLOSE_PARENTHESIS
+
+uclass_macro ::= UCLASS OPEN_PARENTHESIS macro_arguments? CLOSE_PARENTHESIS
+
+ustruct_macro ::= USTRUCT OPEN_PARENTHESIS macro_arguments? CLOSE_PARENTHESIS
+
+uenum_macro ::= UENUM OPEN_PARENTHESIS macro_arguments? CLOSE_PARENTHESIS
+
+umeta_macro ::= UMETA OPEN_PARENTHESIS macro_arguments? CLOSE_PARENTHESIS
+
+macro_arguments ::= macro_argument (LIST_SEPARATOR macro_argument)* LIST_SEPARATOR?
+
+macro_argument ::= macro_identifier macro_value?
+
+macro_identifier ::= IDENTIFIER | STRING
+
+macro_value ::=
+    ASSIGNMENT macro_value_expr
+  | ASSIGNMENT OPEN_PARENTHESIS macro_arguments CLOSE_PARENTHESIS
+
+// Note: VSCode extension allows 'keyword' as macro value (line 1315 of angelscript.pegjs)
+// This includes boolean literals and nullptr, which are commonly used in Meta specifiers
+// Example: UPROPERTY(EditInstanceOnly, Meta = (MakeEditWidget=true))
+macro_value_expr ::= IDENTIFIER | NUMBER | STRING | TRUE | FALSE | NULLPTR | macro_pipe_list
+
+macro_pipe_list ::= IDENTIFIER (BIT_OR IDENTIFIER)+
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// ERROR RECOVERY PREDICATES (Solidity Plugin Pattern)
+// ════════════════════════════════════════════════════════════════════════════════
+// Following the minimal recovery approach from the Solidity IntelliJ plugin
+// Only 3 recovery predicates for entire grammar - keeps complexity low
+
+// Recover to semicolon - used for statement-level constructs
+private UntilSemicolonRecover ::= !(';')
+
+// Recover to closing brace OR top-level keywords - used for block-level constructs
+// AngelScript allows multiple top-level declarations, so recovery must stop at file-level keywords
+// to prevent consuming subsequent declarations into malformed blocks
+private UntilBraceRecover ::= !('}' | CLASS | STRUCT | INTERFACE | ENUM | NAMESPACE | MIXIN | FUNCDEF | TYPEDEF)
+
+// Recover to closing brace for specific contexts (same as UntilBraceRecover, named for clarity)
+private ClosedBracketRecover ::= !('}' | CLASS | STRUCT | INTERFACE | ENUM | NAMESPACE | MIXIN | FUNCDEF | TYPEDEF)
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// TOKEN REFERENCES (for code generation)
+// ════════════════════════════════════════════════════════════════════════════════
+// This private rule ensures Grammar-Kit generates token constants for all lexer tokens
+// even if they're not explicitly used in grammar rules
+
+private meta unused_tokens ::=
+    COMMENT | UNKNOWN
+  | PP_TEXT | PP_IDENTIFIER
+  // F-string tokens
+  | FSTRING_ESCAPED_LBRACE | FSTRING_ESCAPED_RBRACE
+  | FSTRING_TEXT | FSTRING_BEGIN | FSTRING_END
+  | FSTRING_EXPR_BEGIN | FSTRING_EXPR_END
+  | FSTRING_FORMAT_SEP | FSTRING_DEBUG_EQ | FSTRING_FORMAT_SPEC
+  // Name string tokens
+  | NAMESTRING_BEGIN | NAMESTRING_END | NAMESTRING_TEXT
+  // Preprocessor keywords
+  | PP_IF | PP_ELIF | PP_ELSE | PP_ENDIF | PP_DEFINE | PP_UNDEF
+  | PP_EDITOR | PP_TEST
+  // All other keywords and tokens
+  | HASH | STAR | VARIADIC | XOR | FROM

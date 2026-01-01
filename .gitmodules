@@ -1,0 +1,4 @@
+[submodule "third-party/vscode-unreal-angelscript"]
+	path = third-party/vscode-unreal-angelscript
+	url = https://github.com/Hazelight/vscode-unreal-angelscript.git
+	ignore = dirty

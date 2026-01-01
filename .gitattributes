@@ -1,0 +1,44 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.java text eol=lf
+*.kt text eol=lf
+*.kts text eol=lf
+*.cs text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.xml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.properties text eol=lf
+*.gradle text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Grammar files
+*.bnf text eol=lf
+*.flex text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+
+# Binary files
+*.jar binary
+*.zip binary
+*.dll binary
+*.exe binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.woff binary
+*.woff2 binary

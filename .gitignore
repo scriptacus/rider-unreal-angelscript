@@ -1,0 +1,45 @@
+# Build artifacts
+/.intellijPlatform/
+[Bb]in/
+[Oo]bj/
+build/
+output/
+.gradle/
+.tmp/
+node_modules/
+
+# Analysis artifacts (Claude Code agent system)
+.ai/
+docs/plans/
+
+# Reference
+third-party/angelscript-reference
+third-party/Angelscript
+third-party/lsp4ij-main
+
+# User-specific files
+*.suo
+*.user
+*.sln.docstates
+*.cache
+gradle.properties
+
+# IDEs
+.idea/
+*.iml
+.vs/
+_ReSharper*/
+_dotTrace*/
+
+# Debug files
+*.hprof
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+nul
+
+# Claude Code local settings
+.claude/settings.local.json
+CLAUDE.md
