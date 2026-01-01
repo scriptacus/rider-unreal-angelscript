@@ -92,16 +92,12 @@ jobs:
       - name: Verify build outputs
         shell: bash
         run: |
-          if [ ! -f "output/rider-unreal-angelscript-${{ steps.get_version.outputs.VERSION }}.zip" ]; then
+          if [ ! -f "output/Scriptacus.RiderUnrealAngelscript-${{ steps.get_version.outputs.VERSION }}.zip" ]; then
             echo "Error: Plugin ZIP not found!"
             exit 1
           fi
-          if [ ! -f "output/Scriptacus.RiderUnrealAngelscript.${{ steps.get_version.outputs.VERSION }}.nupkg" ]; then
-            echo "Error: NuGet package not found!"
-            exit 1
-          fi
-          echo "Build artifacts verified:"
-          ls -lh output/
+          echo "Build artifact verified:"
+          ls -lh output/*.zip
 
       - name: Extract changelog for this version
         id: changelog
@@ -131,8 +127,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            output/rider-unreal-angelscript-${{ steps.get_version.outputs.VERSION }}.zip
-            output/Scriptacus.RiderUnrealAngelscript.${{ steps.get_version.outputs.VERSION }}.nupkg
+            output/Scriptacus.RiderUnrealAngelscript-${{ steps.get_version.outputs.VERSION }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
