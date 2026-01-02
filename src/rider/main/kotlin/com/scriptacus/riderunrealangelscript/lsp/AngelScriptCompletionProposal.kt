@@ -166,6 +166,47 @@ class AngelScriptCompletionProposal(
         )
 
         /**
+         * Calculate prefix start offset with AngelScript scope awareness.
+         *
+         * Unlike lsp4ij's default word boundary logic, this recognizes :: as a special
+         * boundary for scoped identifiers. When completing "FVector::Z", this returns
+         * the offset after :: (pointing at Z), not before FVector.
+         *
+         * lsp4ij uses PSI element text ranges to calculate prefixStartOffset, which returns
+         * the start of the entire scope_resolution PSI node. For "FVector::Z", lsp4ij returns
+         * the position of 'F', but we need the position of 'Z'.
+         */
+        private fun calculateScopeAwarePrefix(document: Document, offset: Int): Int {
+            if (offset == 0) return 0
+
+            val text = document.text
+            var pos = offset - 1
+
+            while (pos >= 0) {
+                val char = text[pos]
+
+                // Stop at scope resolution operator (::)
+                if (pos > 0 && text[pos - 1] == ':' && char == ':') {
+                    return pos + 1  // Prefix starts after ::
+                }
+
+                // Stop at incomplete scope operator (single :)
+                if (char == ':') {
+                    return pos + 1  // Prefix starts after :
+                }
+
+                // Stop at other non-identifier characters
+                if (!char.isLetterOrDigit() && char != '_') {
+                    return pos + 1
+                }
+
+                pos--
+            }
+
+            return 0
+        }
+
+        /**
          * Apply text edits with stable sorting.
          * This is a copy of LSPIJUtils.doApplyEdits() but with a stable comparator.
          *
@@ -254,8 +295,7 @@ class AngelScriptCompletionProposal(
 
             if (textEdit == null) {
                 insertText = getInsertTextMethod.invoke(this) as String?
-                val prefixStartOffset = prefixStartOffsetField.getInt(this)
-                val startOffset = prefixStartOffset
+                val startOffset = calculateScopeAwarePrefix(document, offset)
                 val endOffset = offset
                 val start = LSPIJUtils.toPosition(startOffset, document)
                 val end = LSPIJUtils.toPosition(endOffset, document)
@@ -290,12 +330,12 @@ class AngelScriptCompletionProposal(
 
             // Reuse existing characters
             if (insertText != null) {
-                val prefixStartOffset = prefixStartOffsetField.getInt(this)
-                val shift = offset - prefixStartOffset
+                val scopeAwarePrefix = calculateScopeAwarePrefix(document, offset)
+                val shift = offset - scopeAwarePrefix
                 var commonSize = 0
                 while (commonSize < insertText.length - shift &&
                     document.textLength > offset + commonSize &&
-                    document.text[prefixStartOffset + shift + commonSize] == insertText[commonSize + shift]) {
+                    document.text[scopeAwarePrefix + shift + commonSize] == insertText[commonSize + shift]) {
                     commonSize++
                 }
                 textEdit.range.end.character = textEdit.range.end.character + commonSize
