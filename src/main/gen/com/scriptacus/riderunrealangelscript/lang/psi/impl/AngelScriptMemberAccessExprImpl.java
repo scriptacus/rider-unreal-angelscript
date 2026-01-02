@@ -8,17 +8,17 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static com.scriptacus.riderunrealangelscript.lang.psi.AngelScriptTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import com.scriptacus.riderunrealangelscript.lang.psi.*;
 
-public class AngelScriptScopedIdentifierImpl extends ASTWrapperPsiElement implements AngelScriptScopedIdentifier {
+public class AngelScriptMemberAccessExprImpl extends AngelScriptExprImpl implements AngelScriptMemberAccessExpr {
 
-  public AngelScriptScopedIdentifierImpl(@NotNull ASTNode node) {
+  public AngelScriptMemberAccessExprImpl(@NotNull ASTNode node) {
     super(node);
   }
 
+  @Override
   public void accept(@NotNull AngelScriptVisitor visitor) {
-    visitor.visitScopedIdentifier(this);
+    visitor.visitMemberAccessExpr(this);
   }
 
   @Override
@@ -28,15 +28,33 @@ public class AngelScriptScopedIdentifierImpl extends ASTWrapperPsiElement implem
   }
 
   @Override
-  @Nullable
+  @NotNull
+  public List<AngelScriptExpr> getExprList() {
+    return PsiTreeUtil.getChildrenOfTypeAsList(this, AngelScriptExpr.class);
+  }
+
+  @Override
+  @NotNull
   public AngelScriptIdentifierReference getIdentifierReference() {
-    return findChildByClass(AngelScriptIdentifierReference.class);
+    return findNotNullChildByClass(AngelScriptIdentifierReference.class);
   }
 
   @Override
   @Nullable
-  public AngelScriptScopeResolution getScopeResolution() {
-    return findChildByClass(AngelScriptScopeResolution.class);
+  public AngelScriptStatement getStatement() {
+    return findChildByClass(AngelScriptStatement.class);
+  }
+
+  @Override
+  @Nullable
+  public List<AngelScriptExpr> getObject() {
+    return getExprList();
+  }
+
+  @Override
+  @NotNull
+  public AngelScriptIdentifierReference getMemberName() {
+    return getIdentifierReference();
   }
 
 }

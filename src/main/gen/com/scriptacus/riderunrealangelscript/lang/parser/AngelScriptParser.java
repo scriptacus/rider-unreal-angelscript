@@ -38,9 +38,9 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   public static final TokenSet[] EXTENDS_SETS_ = new TokenSet[] {
     create_token_set_(ADDITIVE_EXPR, ASSIGN_EXPR, BITWISE_AND_EXPR, BITWISE_OR_EXPR,
       BITWISE_XOR_EXPR, EQUALITY_EXPR, EXPR, LOGICAL_AND_EXPR,
-      LOGICAL_OR_EXPR, MACRO_VALUE_EXPR, MULTIPLICATIVE_EXPR, POSTFIX_EXPR,
-      PRIMARY_EXPR, RELATIONAL_EXPR, SHIFT_EXPR, TERNARY_EXPR,
-      UNARY_EXPR),
+      LOGICAL_OR_EXPR, MACRO_VALUE_EXPR, MEMBER_ACCESS_EXPR, MULTIPLICATIVE_EXPR,
+      POSTFIX_EXPR, PRIMARY_EXPR, RELATIONAL_EXPR, SHIFT_EXPR,
+      TERNARY_EXPR, UNARY_EXPR),
   };
 
   /* ********************************************************** */
@@ -1409,6 +1409,24 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // SCOPE
+  static boolean global_scope_prefix(PsiBuilder builder_, int level_) {
+    return consumeToken(builder_, SCOPE);
+  }
+
+  /* ********************************************************** */
+  // IDENTIFIER
+  public static boolean identifier_reference(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "identifier_reference")) return false;
+    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeToken(builder_, IDENTIFIER);
+    exit_section_(builder_, marker_, IDENTIFIER_REFERENCE, result_);
+    return result_;
+  }
+
+  /* ********************************************************** */
   // IF OPEN_PARENTHESIS expr CLOSE_PARENTHESIS statement else_clause?
   public static boolean if_statement(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "if_statement")) return false;
@@ -1805,7 +1823,6 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   /* ********************************************************** */
   // OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS  // Function call
   //   | OPEN_BRACKET expr CLOSE_BRACKET                     // Array subscript
-  //   | DOT IDENTIFIER                                      // Member access
   //   | INC                                                 // Post-increment
   //   | DEC
   static boolean postfix_op(PsiBuilder builder_, int level_) {
@@ -1814,7 +1831,6 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
     Marker marker_ = enter_section_(builder_);
     result_ = postfix_op_0(builder_, level_ + 1);
     if (!result_) result_ = postfix_op_1(builder_, level_ + 1);
-    if (!result_) result_ = parseTokens(builder_, 0, DOT, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, INC);
     if (!result_) result_ = consumeToken(builder_, DEC);
     exit_section_(builder_, marker_, null, result_);
@@ -1958,45 +1974,60 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // SCOPE? IDENTIFIER (SCOPE IDENTIFIER)*
+  // identifier_reference scope_segment*
+  static boolean scope_name_chain(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "scope_name_chain")) return false;
+    if (!nextTokenIs(builder_, IDENTIFIER)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = identifier_reference(builder_, level_ + 1);
+    result_ = result_ && scope_name_chain_1(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
+  }
+
+  // scope_segment*
+  private static boolean scope_name_chain_1(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "scope_name_chain_1")) return false;
+    while (true) {
+      int pos_ = current_position_(builder_);
+      if (!scope_segment(builder_, level_ + 1)) break;
+      if (!empty_element_parsed_guard_(builder_, "scope_name_chain_1", pos_)) break;
+    }
+    return true;
+  }
+
+  /* ********************************************************** */
+  // SCOPE identifier_reference
+  public static boolean scope_segment(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "scope_segment")) return false;
+    if (!nextTokenIs(builder_, SCOPE)) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_, level_, _LEFT_, SCOPE_RESOLUTION, null);
+    result_ = consumeToken(builder_, SCOPE);
+    result_ = result_ && identifier_reference(builder_, level_ + 1);
+    exit_section_(builder_, level_, marker_, result_, false, null);
+    return result_;
+  }
+
+  /* ********************************************************** */
+  // global_scope_prefix? scope_name_chain
   public static boolean scoped_identifier(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "scoped_identifier")) return false;
     if (!nextTokenIs(builder_, "<scoped identifier>", IDENTIFIER, SCOPE)) return false;
     boolean result_;
     Marker marker_ = enter_section_(builder_, level_, _NONE_, SCOPED_IDENTIFIER, "<scoped identifier>");
     result_ = scoped_identifier_0(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, IDENTIFIER);
-    result_ = result_ && scoped_identifier_2(builder_, level_ + 1);
+    result_ = result_ && scope_name_chain(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);
     return result_;
   }
 
-  // SCOPE?
+  // global_scope_prefix?
   private static boolean scoped_identifier_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "scoped_identifier_0")) return false;
-    consumeToken(builder_, SCOPE);
+    global_scope_prefix(builder_, level_ + 1);
     return true;
-  }
-
-  // (SCOPE IDENTIFIER)*
-  private static boolean scoped_identifier_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "scoped_identifier_2")) return false;
-    while (true) {
-      int pos_ = current_position_(builder_);
-      if (!scoped_identifier_2_0(builder_, level_ + 1)) break;
-      if (!empty_element_parsed_guard_(builder_, "scoped_identifier_2", pos_)) break;
-    }
-    return true;
-  }
-
-  // SCOPE IDENTIFIER
-  private static boolean scoped_identifier_2_0(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "scoped_identifier_2_0")) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_);
-    result_ = consumeTokens(builder_, 0, SCOPE, IDENTIFIER);
-    exit_section_(builder_, marker_, null, result_);
-    return result_;
   }
 
   /* ********************************************************** */
@@ -2793,8 +2824,9 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   // 10: BINARY(additive_expr)
   // 11: BINARY(multiplicative_expr)
   // 12: PREFIX(unary_expr)
-  // 13: POSTFIX(postfix_expr)
-  // 14: ATOM(primary_expr)
+  // 13: POSTFIX(member_access_expr)
+  // 14: POSTFIX(postfix_expr)
+  // 15: ATOM(primary_expr)
   public static boolean expr(PsiBuilder builder_, int level_, int priority_) {
     if (!recursion_guard_(builder_, level_, "expr")) return false;
     addVariant(builder_, "<expr>");
@@ -2862,7 +2894,11 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
         result_ = expr(builder_, level_, 11);
         exit_section_(builder_, level_, marker_, MULTIPLICATIVE_EXPR, result_, true, null);
       }
-      else if (priority_ < 13 && postfix_expr_0(builder_, level_ + 1)) {
+      else if (priority_ < 13 && member_access_expr_0(builder_, level_ + 1)) {
+        result_ = true;
+        exit_section_(builder_, level_, marker_, MEMBER_ACCESS_EXPR, result_, true, null);
+      }
+      else if (priority_ < 14 && postfix_expr_0(builder_, level_ + 1)) {
         result_ = true;
         exit_section_(builder_, level_, marker_, POSTFIX_EXPR, result_, true, null);
       }
@@ -2894,6 +2930,17 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
     result_ = pinned_ && expr(builder_, level_, 12);
     exit_section_(builder_, level_, marker_, UNARY_EXPR, result_, pinned_, null);
     return result_ || pinned_;
+  }
+
+  // DOT identifier_reference
+  private static boolean member_access_expr_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "member_access_expr_0")) return false;
+    boolean result_;
+    Marker marker_ = enter_section_(builder_);
+    result_ = consumeTokenSmart(builder_, DOT);
+    result_ = result_ && identifier_reference(builder_, level_ + 1);
+    exit_section_(builder_, marker_, null, result_);
+    return result_;
   }
 
   // postfix_op+

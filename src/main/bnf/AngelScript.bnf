@@ -282,8 +282,42 @@ primitive_type ::=
   | UINT | UINT8 | UINT16 | UINT32 | UINT64
   | FLOAT | FLOAT32 | FLOAT64 | DOUBLE
 
-// BNF:5: Scoped identifier with :: resolution
-scoped_identifier ::= SCOPE? IDENTIFIER (SCOPE IDENTIFIER)*
+// ──────────────────────────────────────────────────────────────────────────────
+// Scoped Identifier (Compile-Time Name Resolution)
+// ──────────────────────────────────────────────────────────────────────────────
+// BNF:5: SCOPE ::= '::' | IDENTIFIER '::'
+//
+// Used for compile-time namespace/type qualification:
+//   - MyNamespace::MyClass
+//   - OuterClass::InnerClass::StaticMethod
+//   - ::GlobalFunction (leading :: means global scope)
+//
+// NOTE: For runtime member access, use member_access_expr with DOT operator.
+//   - obj.member     ✓ Use DOT (runtime member access)
+//   - NS::Class      ✓ Use SCOPE (compile-time qualification)
+//   - obj::member    ✗ Invalid in AngelScript
+//
+// Structure: Creates proper PSI nodes for each segment of the qualified name.
+// Simple name: identifier_reference
+// Qualified name: scope_resolution (qualifier::identifier_reference)
+// Chained: scope_resolution (scope_resolution::identifier_reference)
+
+scoped_identifier ::= global_scope_prefix? scope_name_chain
+
+private global_scope_prefix ::= SCOPE
+
+private scope_name_chain ::= identifier_reference scope_segment*
+
+left scope_segment ::= SCOPE identifier_reference {
+  elementType=scope_resolution
+}
+
+fake scope_resolution ::= scoped_identifier SCOPE identifier_reference {
+  methods=[
+    qualifier="/scoped_identifier"
+    memberName="/identifier_reference"
+  ]
+}
 
 // Template arguments: <Type1, Type2, ...>
 // Note: >> and >>> are not tokenized to allow nested templates like TArray<TArray<int>>
@@ -415,6 +449,7 @@ expr ::=
   | additive_expr
   | multiplicative_expr
   | unary_expr
+  | member_access_expr      // Member access with proper PSI nodes (before postfix_expr)
   | postfix_expr
   | primary_expr
 
@@ -569,9 +604,30 @@ postfix_expr ::= expr postfix_op+
 private postfix_op ::=
     OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS  // Function call
   | OPEN_BRACKET expr CLOSE_BRACKET                     // Array subscript
-  | DOT IDENTIFIER                                      // Member access
   | INC                                                 // Post-increment
   | DEC                                                 // Post-decrement
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Member Access Expression
+// ──────────────────────────────────────────────────────────────────────────────
+// Creates proper PSI nodes for member access (obj.member) instead of flat tokens.
+// Uses left recursion for chaining (a.b.c.d) without deep PSI nesting.
+// Based on patterns from intellij-rust, go-lang-idea-plugin, and intellij-elm.
+
+left member_access_expr ::= expr DOT identifier_reference {
+  methods=[
+    object="/expr"
+    memberName="/identifier_reference"
+  ]
+}
+
+identifier_reference ::= IDENTIFIER {
+  methods=[
+    getName
+    getReference
+  ]
+}
 
 
 // ──────────────────────────────────────────────────────────────────────────────

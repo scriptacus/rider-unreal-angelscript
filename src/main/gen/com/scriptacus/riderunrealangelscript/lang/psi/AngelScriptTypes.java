@@ -66,6 +66,7 @@ public interface AngelScriptTypes {
   IElementType FUNCTION_QUALIFIERS = new AngelScriptElementType("FUNCTION_QUALIFIERS");
   IElementType FUNCTION_SIGNATURE = new AngelScriptElementType("FUNCTION_SIGNATURE");
   IElementType GLOBAL_FUNCTION_DECL = new AngelScriptElementType("GLOBAL_FUNCTION_DECL");
+  IElementType IDENTIFIER_REFERENCE = new AngelScriptElementType("IDENTIFIER_REFERENCE");
   IElementType IF_STATEMENT = new AngelScriptElementType("IF_STATEMENT");
   IElementType LOGICAL_AND_EXPR = new AngelScriptElementType("LOGICAL_AND_EXPR");
   IElementType LOGICAL_OR_EXPR = new AngelScriptElementType("LOGICAL_OR_EXPR");
@@ -75,6 +76,7 @@ public interface AngelScriptTypes {
   IElementType MACRO_PIPE_LIST = new AngelScriptElementType("MACRO_PIPE_LIST");
   IElementType MACRO_VALUE = new AngelScriptElementType("MACRO_VALUE");
   IElementType MACRO_VALUE_EXPR = new AngelScriptElementType("MACRO_VALUE_EXPR");
+  IElementType MEMBER_ACCESS_EXPR = new AngelScriptElementType("MEMBER_ACCESS_EXPR");
   IElementType MULTIPLICATIVE_EXPR = new AngelScriptElementType("MULTIPLICATIVE_EXPR");
   IElementType NAMED_ARGUMENT = new AngelScriptElementType("NAMED_ARGUMENT");
   IElementType NAMESPACE_BODY = new AngelScriptElementType("NAMESPACE_BODY");
@@ -90,6 +92,7 @@ public interface AngelScriptTypes {
   IElementType RETURN_STATEMENT = new AngelScriptElementType("RETURN_STATEMENT");
   IElementType RETURN_TYPE = new AngelScriptElementType("RETURN_TYPE");
   IElementType SCOPED_IDENTIFIER = new AngelScriptElementType("SCOPED_IDENTIFIER");
+  IElementType SCOPE_RESOLUTION = new AngelScriptElementType("SCOPE_RESOLUTION");
   IElementType SHIFT_EXPR = new AngelScriptElementType("SHIFT_EXPR");
   IElementType STATEMENT = new AngelScriptElementType("STATEMENT");
   IElementType STATEMENT_BLOCK = new AngelScriptElementType("STATEMENT_BLOCK");
@@ -430,6 +433,9 @@ public interface AngelScriptTypes {
       else if (type == GLOBAL_FUNCTION_DECL) {
         return new AngelScriptGlobalFunctionDeclImpl(node);
       }
+      else if (type == IDENTIFIER_REFERENCE) {
+        return new AngelScriptIdentifierReferenceImpl(node);
+      }
       else if (type == IF_STATEMENT) {
         return new AngelScriptIfStatementImpl(node);
       }
@@ -456,6 +462,9 @@ public interface AngelScriptTypes {
       }
       else if (type == MACRO_VALUE_EXPR) {
         return new AngelScriptMacroValueExprImpl(node);
+      }
+      else if (type == MEMBER_ACCESS_EXPR) {
+        return new AngelScriptMemberAccessExprImpl(node);
       }
       else if (type == MULTIPLICATIVE_EXPR) {
         return new AngelScriptMultiplicativeExprImpl(node);
@@ -501,6 +510,9 @@ public interface AngelScriptTypes {
       }
       else if (type == SCOPED_IDENTIFIER) {
         return new AngelScriptScopedIdentifierImpl(node);
+      }
+      else if (type == SCOPE_RESOLUTION) {
+        return new AngelScriptScopeResolutionImpl(node);
       }
       else if (type == SHIFT_EXPR) {
         return new AngelScriptShiftExprImpl(node);

@@ -5,12 +5,21 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface AngelScriptScopedIdentifier extends PsiElement {
+public interface AngelScriptMemberAccessExpr extends AngelScriptExpr {
 
-  @Nullable
+  @NotNull
+  List<AngelScriptExpr> getExprList();
+
+  @NotNull
   AngelScriptIdentifierReference getIdentifierReference();
 
   @Nullable
-  AngelScriptScopeResolution getScopeResolution();
+  AngelScriptStatement getStatement();
+
+  @Nullable
+  List<AngelScriptExpr> getObject();
+
+  @NotNull
+  AngelScriptIdentifierReference getMemberName();
 
 }

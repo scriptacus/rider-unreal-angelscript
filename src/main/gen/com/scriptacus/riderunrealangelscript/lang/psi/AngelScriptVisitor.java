@@ -243,6 +243,10 @@ public class AngelScriptVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitIdentifierReference(@NotNull AngelScriptIdentifierReference o) {
+    visitPsiElement(o);
+  }
+
   public void visitIfStatement(@NotNull AngelScriptIfStatement o) {
     visitPsiElement(o);
   }
@@ -276,6 +280,10 @@ public class AngelScriptVisitor extends PsiElementVisitor {
   }
 
   public void visitMacroValueExpr(@NotNull AngelScriptMacroValueExpr o) {
+    visitExpr(o);
+  }
+
+  public void visitMemberAccessExpr(@NotNull AngelScriptMemberAccessExpr o) {
     visitExpr(o);
   }
 
@@ -332,6 +340,10 @@ public class AngelScriptVisitor extends PsiElementVisitor {
   }
 
   public void visitReturnType(@NotNull AngelScriptReturnType o) {
+    visitPsiElement(o);
+  }
+
+  public void visitScopeResolution(@NotNull AngelScriptScopeResolution o) {
     visitPsiElement(o);
   }
 
