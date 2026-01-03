@@ -24,10 +24,20 @@ class AngelScriptBlock(
     /**
      * Builds child blocks for this node's children.
      * Mirrors the PSI tree structure, creating a block for each child node.
+     *
+     * Special handling for CLASS_METHOD_DECL to ensure braces align properly:
+     * - All direct children share the same alignment to prevent function_decl from indenting
      */
     override fun buildChildren(): List<Block> {
         val blocks = mutableListOf<Block>()
         var child = myNode.firstChildNode
+
+        // For method declarations, create a shared alignment for all children
+        // This ensures the function_decl doesn't indent relative to the access_specifier
+        val childAlignment = when (myNode.elementType) {
+            AngelScriptTypes.CLASS_METHOD_DECL -> Alignment.createAlignment()
+            else -> null
+        }
 
         while (child != null) {
             // Skip whitespace tokens - they're handled by spacing rules
@@ -36,7 +46,7 @@ class AngelScriptBlock(
                     AngelScriptBlock(
                         node = child,
                         wrap = Wrap.createWrap(WrapType.NONE, false),
-                        alignment = Alignment.createAlignment(),
+                        alignment = childAlignment,
                         spacingBuilder = spacingBuilder
                     )
                 )
@@ -54,6 +64,7 @@ class AngelScriptBlock(
      * - NO indent for braces (they stay at parent's indent level)
      * - NORMAL indent for children of CLASS_BODY, FUNCTION_BODY, STATEMENT_BLOCK
      * - NONE indent for all other elements
+     * - Special handling for FUNCTION_DECL inside CLASS_METHOD_DECL to prevent double indentation
      */
     override fun getIndent(): Indent? {
         // Braces should never be indented relative to their parent body
@@ -64,7 +75,20 @@ class AngelScriptBlock(
         }
 
         val parent = myNode.treeParent?.psi
-        return when (parent?.node?.elementType) {
+        val parentType = parent?.node?.elementType
+
+        // Special case: FUNCTION_DECL inside CLASS_METHOD_DECL or STRUCT_METHOD_DECL
+        // The function declaration should not be indented because it's part of the method declaration
+        // This prevents the braces from being aligned to the function decl instead of the method decl
+        if (myNode.elementType == AngelScriptTypes.FUNCTION_DECL) {
+            return when (parentType) {
+                AngelScriptTypes.CLASS_METHOD_DECL,
+                AngelScriptTypes.GLOBAL_FUNCTION_DECL -> Indent.getNoneIndent()
+                else -> Indent.getNoneIndent()
+            }
+        }
+
+        return when (parentType) {
             AngelScriptTypes.CLASS_BODY,
             AngelScriptTypes.STRUCT_BODY,
             AngelScriptTypes.FUNCTION_BODY,
