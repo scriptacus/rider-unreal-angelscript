@@ -39,4 +39,30 @@ interface AngelScriptLanguageServer : LanguageServer {
      */
     @JsonRequest("angelscript/getAPISearch")
     fun getAPISearch(filter: String): CompletableFuture<List<*>>
+
+    /**
+     * Get C++ symbol information for a symbol at a given position.
+     * Custom LSP request: angelscript/getCppSymbol
+     *
+     * Returns the C++ class name and symbol name for client-side navigation in Rider.
+     *
+     * @param params Object containing uri and position
+     * @return CompletableFuture that resolves to a map with "className" and "symbolName", or null if no C++ symbol
+     */
+    @JsonRequest("angelscript/getCppSymbol")
+    fun getCppSymbol(params: Map<String, Any>): CompletableFuture<Map<String, String>?>
+
+    /**
+     * Request navigation to C++ source for a symbol at a given position via Unreal Engine.
+     * Custom LSP request: angelscript/navigateToCpp
+     *
+     * This triggers the language server to:
+     * 1. Resolve the AngelScript symbol at the position to its C++ equivalent
+     * 2. Send a command to Unreal Engine to open the C++ file in the IDE
+     *
+     * @param params Object containing uri and position
+     * @return CompletableFuture that resolves to true if navigation was triggered, false otherwise
+     */
+    @JsonRequest("angelscript/navigateToCpp")
+    fun navigateToCpp(params: Map<String, Any>): CompletableFuture<Boolean>
 }

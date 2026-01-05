@@ -16,16 +16,19 @@ class AngelScriptSettingsConfigurable : SearchableConfigurable {
     private lateinit var completionPanel: CompletionSettingsPanel
     private lateinit var diagnosticsPanel: DiagnosticsSettingsPanel
     private lateinit var codeLensPanel: CodeLensSettingsPanel
+    private lateinit var navigationPanel: NavigationSettingsPanel
 
     override fun getId() = "angelscript.settings"
 
     override fun getDisplayName() = "AngelScript"
 
     override fun createComponent(): JComponent {
+        val state = settings.state
         generalPanel = GeneralSettingsPanel()
         completionPanel = CompletionSettingsPanel()
         diagnosticsPanel = DiagnosticsSettingsPanel()
         codeLensPanel = CodeLensSettingsPanel()
+        navigationPanel = NavigationSettingsPanel(state)
 
         mainPanel = panel {
             group("General") {
@@ -43,9 +46,14 @@ class AngelScriptSettingsConfigurable : SearchableConfigurable {
                     cell(diagnosticsPanel.createPanel())
                 }
             }
-            group("Code Lenses") {
+//            group("Code Lenses") {
+//                row {
+//                    cell(codeLensPanel.createPanel())
+//                }
+//            }
+            group("Navigation") {
                 row {
-                    cell(codeLensPanel.createPanel())
+                    cell(navigationPanel.createPanel())
                 }
             }
         }
@@ -59,7 +67,8 @@ class AngelScriptSettingsConfigurable : SearchableConfigurable {
         return generalPanel.isModified(state) ||
                 completionPanel.isModified(state) ||
                 diagnosticsPanel.isModified(state) ||
-                codeLensPanel.isModified(state)
+                codeLensPanel.isModified(state) ||
+                navigationPanel.isModified(state)
     }
 
     override fun apply() {
@@ -68,6 +77,7 @@ class AngelScriptSettingsConfigurable : SearchableConfigurable {
         completionPanel.apply(state)
         diagnosticsPanel.apply(state)
         codeLensPanel.apply(state)
+        navigationPanel.apply(state)
 
         // Notify settings changed
         settings.notifySettingsChanged()
@@ -84,6 +94,7 @@ class AngelScriptSettingsConfigurable : SearchableConfigurable {
         completionPanel.reset(state)
         diagnosticsPanel.reset(state)
         codeLensPanel.reset(state)
+        navigationPanel.reset(state)
     }
 
     override fun disposeUIResources() {

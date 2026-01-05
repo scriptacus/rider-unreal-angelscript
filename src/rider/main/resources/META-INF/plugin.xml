@@ -48,6 +48,10 @@
         <lang.formatter language="angelscript"
                         implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptFormattingModelBuilder"/>
 
+        <!-- Navigation handler: filters excluded files and provides C++ navigation -->
+        <gotoDeclarationHandler
+                implementation="com.scriptacus.riderunrealangelscript.navigation.AngelScriptCppNavigationHandler"/>
+
         <!-- Settings/Preferences UI for AngelScript plugin -->
         <applicationConfigurable
             parentId="language"
@@ -79,14 +83,14 @@
             secondary="false"
             canCloseContents="false"
             doNotActivateOnStart="true"
-            icon="com.scriptacus.riderunrealangelscript.AngelScriptIcons.FileIcon"/>
+            icon="com.scriptacus.riderunrealangelscript.AngelScriptIcons.ProjectWindow"/>
 
         <!-- Send initial LSP configuration when project opens -->
         <postStartupActivity implementation="com.scriptacus.riderunrealangelscript.lsp.AngelScriptLspInitializer"/>
 
         <!-- Auto-switch between AngelScript Files and Solution Explorer tool windows -->
         <postStartupActivity implementation="com.scriptacus.riderunrealangelscript.toolwindow.ToolWindowSwitcher"/>
-    </extensions>
+G    </extensions>
 
     <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
         <server id="angelscript-lsp" factoryClass="com.scriptacus.riderunrealangelscript.lsp.AngelScriptLanguageServerFactory"/>
