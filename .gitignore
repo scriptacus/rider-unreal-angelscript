@@ -40,6 +40,11 @@ _dotTrace*/
 Thumbs.db
 nul
 
+# Editor backup files
+*~
+*.bak
+*.swp
+
 # Claude Code local settings
 .claude/settings.local.json
 CLAUDE.md
