@@ -42157,6 +42157,60 @@ connection.onRequest("angelscript/getAPIDetails", (root) => {
   });
   return promise;
 });
+connection.onRequest("angelscript/getCppSymbol", (params) => {
+  let uri = params.uri;
+  let position = params.position;
+  connection.console.log(`[getCppSymbol] Request received - URI: ${uri}, Position: ${position.line}:${position.character}`);
+  let asmodule = GetAndParseModule(uri);
+  if (!asmodule) {
+    connection.console.log(`[getCppSymbol] Module not found for URI: ${uri}`);
+    return null;
+  }
+  if (!asmodule.resolved) {
+    connection.console.log(`[getCppSymbol] Module not resolved: ${uri}`);
+    return null;
+  }
+  connection.console.log(`[getCppSymbol] Module found and resolved: ${asmodule.modulename}`);
+  let cppSymbol = scriptsymbols.GetCppSymbol(asmodule, position);
+  if (!cppSymbol) {
+    connection.console.log(`[getCppSymbol] No C++ symbol found at position ${position.line}:${position.character}`);
+    return null;
+  }
+  connection.console.log(`[getCppSymbol] C++ symbol found: ${cppSymbol[0]}.${cppSymbol[1]}`);
+  return {
+    className: cppSymbol[0],
+    symbolName: cppSymbol[1]
+  };
+});
+connection.onRequest("angelscript/navigateToCpp", (params) => {
+  let uri = params.uri;
+  let position = params.position;
+  connection.console.log(`[navigateToCpp] Request received - URI: ${uri}, Position: ${position.line}:${position.character}`);
+  let asmodule = GetAndParseModule(uri);
+  if (!asmodule) {
+    connection.console.log(`[navigateToCpp] Module not found for URI: ${uri}`);
+    return false;
+  }
+  if (!asmodule.resolved) {
+    connection.console.log(`[navigateToCpp] Module not resolved: ${uri}`);
+    return false;
+  }
+  connection.console.log(`[navigateToCpp] Module found and resolved: ${asmodule.modulename}`);
+  let cppSymbol = scriptsymbols.GetCppSymbol(asmodule, position);
+  if (!cppSymbol) {
+    connection.console.log(`[navigateToCpp] No C++ symbol found at position ${position.line}:${position.character}`);
+    return false;
+  }
+  connection.console.log(`[navigateToCpp] C++ symbol found: ${cppSymbol[0]}.${cppSymbol[1]}`);
+  if (unreal) {
+    connection.console.log(`[navigateToCpp] Sending goto command to Unreal Engine`);
+    unreal.write(buildGoTo(cppSymbol[0], cppSymbol[1]));
+    return true;
+  }
+  connection.console.log(`[navigateToCpp] Not connected to Unreal Engine`);
+  return false;
+});
+
 connection.languages.inlineValue.on(function(params) {
   let asmodule = GetAndParseModule(params.textDocument.uri);
   if (!asmodule)
