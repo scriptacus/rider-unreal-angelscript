@@ -12,6 +12,17 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 )
 class AngelScriptLspSettings : PersistentStateComponent<AngelScriptLspSettings.State> {
 
+    enum class CppNavigationStrategy {
+        /** Navigate to C++ using text-based symbol search in Rider. Requires C++ sources in project. */
+        TEXT_SEARCH {
+            override fun toString() = "Rider";
+        },
+        /** Delegate C++ navigation to Unreal Engine. Opens in configured IDE via RiderLink. Works without C++ sources in Rider. */
+        UNREAL_ENGINE {
+            override fun toString() = "Unreal";
+        }
+    }
+
     data class State(
         // General
         var unrealConnectionPort: Int = 27099,
@@ -26,6 +37,9 @@ class AngelScriptLspSettings : PersistentStateComponent<AngelScriptLspSettings.S
 
         // Code Lenses
         var showCreateBlueprintClasses: MutableList<String> = mutableListOf("AActor", "UUserWidget"),
+
+        // Navigation
+        var cppNavigationStrategy: CppNavigationStrategy = CppNavigationStrategy.TEXT_SEARCH,
 
         // Advanced
         var projectCodeGenerationEnable: Boolean = false,

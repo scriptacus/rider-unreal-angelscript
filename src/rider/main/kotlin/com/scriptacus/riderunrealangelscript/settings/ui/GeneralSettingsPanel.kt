@@ -26,10 +26,10 @@ class GeneralSettingsPanel {
                     }
                 }
         }
-        row {
-            label("Script Ignore Patterns:")
-                .comment("Glob patterns for scripts to ignore (e.g., **/Saved/**, **/.plastic/**)")
-        }
+//        row {
+//            label("Script Ignore Patterns:")
+//                .comment("Glob patterns for scripts to ignore (e.g., **/Saved/**, **/.plastic/**)")
+//        }
         // TODO: Add list editor for ignore patterns
         // This would use ToolbarDecorator with a JBList to allow adding/removing patterns
     }
