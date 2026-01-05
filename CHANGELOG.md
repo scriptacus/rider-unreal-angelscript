@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **C++ Navigation**
+  - Navigate from AngelScript symbols to C++ source code
+  - Two navigation strategies:
+    - Rider text search: Direct navigation in Rider using header file search with UE naming convention support
+    - Unreal Engine delegation: Opens C++ source in configured IDE via RiderLink
+  - Configurable in Settings → Tools → AngelScript → Navigation
+  - Intelligent header file ranking (Public/ > Classes/ > Runtime/ > Private/)
+  - Performance caching for repeated lookups
+
+- **Script Ignore Patterns**
+  - Filter files from LSP server using glob patterns
+  - Default patterns exclude build artifacts (**/Saved/**) and VCS metadata (**/.plastic/**)
+  - Prevents duplicate modules and improves LSP performance
+  - Blocks navigation to excluded directories
+
+- **VCS Integration**
+  - Script Files tool window now shows VCS status colors
+  - Async loading prevents EDT blocking
+  - Auto-updates when file status changes
+
+### Changed
+- **Completion Icons**
+  - Updated completion item icons for scripting language semantics
+  - Method → Function icon (matches AngelScript terminology)
+  - Field → Property icon (matches AngelScript terminology)
+
+- **Icon System**
+  - Added light/dark theme icon support for project and file icons
+
+### Fixed
+- Custom completion proposal fixes lsp4ij's additionalTextEdits ordering bug with stable sort
+
 ## 0.9.2 - 2026-01-02
 
 ### Fixed
