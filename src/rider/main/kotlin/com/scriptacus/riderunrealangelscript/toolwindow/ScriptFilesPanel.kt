@@ -10,6 +10,7 @@ import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vcs.FileStatusListener
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.VirtualFileVisitor
@@ -59,6 +60,7 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
     private val treeModel = DefaultTreeModel(rootNode)
     private val scriptFolders = mutableSetOf<VirtualFile>()
     private val properties = PropertiesComponent.getInstance(project)
+    private val renderer: ScriptFileTreeCellRenderer
 
     companion object {
         private const val EXPANDED_PATHS_KEY = "angelscript.files.tree.expanded"
@@ -72,7 +74,8 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
         tree.showsRootHandles = true
 
         // Use custom cell renderer for file icons with VCS status
-        tree.cellRenderer = ScriptFileTreeCellRenderer(project)
+        renderer = ScriptFileTreeCellRenderer(project, tree)
+        tree.cellRenderer = renderer
 
         // Register DataProvider for the tree to provide context for VCS actions
         DataManager.registerDataProvider(tree) { dataId ->
@@ -130,6 +133,9 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         // Set up file editor listener for auto-scroll from source
         setupFileEditorListener()
+
+        // Subscribe to file status changes for VCS color updates
+        setupFileStatusListener()
 
         // Set up keyboard shortcuts
         setupKeyboardShortcuts()
@@ -260,6 +266,24 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
         })
     }
 
+    private fun setupFileStatusListener() {
+        val connection = project.messageBus.connect()
+
+        connection.subscribe(FileStatusListener.TOPIC, object : FileStatusListener {
+            override fun fileStatusesChanged() {
+                // All file statuses changed - clear cache and repaint
+                renderer.clearCache()
+                tree.repaint()
+            }
+
+            override fun fileStatusChanged(file: VirtualFile) {
+                // Single file status changed - invalidate that file's cache and repaint
+                renderer.invalidateStatus(file)
+                tree.repaint()
+            }
+        })
+    }
+
     fun isAutoscrollFromSource(): Boolean {
         return properties.getBoolean(AUTOSCROLL_FROM_SOURCE_KEY, false)
     }
@@ -329,8 +353,10 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         val allProjectFiles = mutableListOf<ProjectFileInfo>()
 
-        // Check if the base directory itself is a Script folder
-        val isBaseDirScriptFolder = (baseDir.name == "Script" || containsAngelScriptFiles(baseDir))
+        // Check if the base directory itself is a Script folder (opened directly)
+        // Only true if it's literally named "Script" - don't check recursively for .as files
+        // because that would match any Unreal project root
+        val isBaseDirScriptFolder = (baseDir.name == "Script")
 
         if (!isBaseDirScriptFolder) {
             // Normal case: search for .uproject/.uplugin files with Script folders
