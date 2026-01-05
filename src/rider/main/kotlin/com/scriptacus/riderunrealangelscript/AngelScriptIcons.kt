@@ -12,5 +12,10 @@ object AngelScriptIcons {
      */
     @JvmField
     val ToolWindow = IconLoader.getIcon("/icons/angelscript_unreal.png", AngelScriptIcons::class.java)
+
+    @JvmField
+    val ProjectWindow = IconLoader.getIcon("/icons/project-icon-dark-theme.svg", AngelScriptIcons::class.java)
+
+    @JvmField
     val FileIcon = IconLoader.getIcon("/icons/file-icon-dark-theme.svg", AngelScriptIcons::class.java)
 }
