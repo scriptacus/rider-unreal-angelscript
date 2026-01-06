@@ -27,31 +27,18 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.swing.Icon
 
 /**
- * Automatically detects and provides AngelScript Script folders for indexing and navigation.
+ * DEPRECATED: This class is no longer used. AngelScript Script folders are now registered
+ * as module content roots via AngelScriptContentRootProvider for better search prioritization.
  *
- * This ensures that Script folders (which follow Unreal Engine conventions) are indexed
- * and available to LSP4IJ even when they're not explicitly part of the Rider project structure.
+ * Historical note: This used AdditionalLibraryRootsProvider to add Script folders as library roots,
+ * but this caused them to be deprioritized in "Navigate to File" searches. The new approach treats
+ * them as first-class project source files.
  *
- * Uses AdditionalLibraryRootsProvider to enable:
- * - Navigate to File (Ctrl+Shift+N) support
- * - Full text indexing for search
- * - LSP integration
- * - Syntax highlighting and language features
+ * See: AngelScriptContentRootProvider for the current implementation
  *
- * Detection strategy:
- * 1. Find all .uproject files → check for <parent>/Script/
- * 2. Find all .uplugin files → check for <parent>/Script/
- *
- * Cache invalidation:
- * - Invalidates when .uproject/.uplugin files are added/deleted
- * - Invalidates when Script folders are created/deleted
- * - Invalidates when exiting dumb mode (to retry failed scans)
- *
- * This catches:
- * - Project AngelScript code
- * - Project plugin AngelScript code
- * - Engine-level plugin AngelScript code
+ * @deprecated Use AngelScriptContentRootProvider instead
  */
+@Deprecated("Use AngelScriptContentRootProvider instead")
 class AngelScriptFolderDetector : AdditionalLibraryRootsProvider(), Disposable {
     private val LOG = Logger.getInstance(AngelScriptFolderDetector::class.java)
 

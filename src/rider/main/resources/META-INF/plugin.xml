@@ -21,8 +21,10 @@
     <extensions defaultExtensionNs="com.intellij">
         <fileType name="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptFileType" language="angelscript" extensions="as;ash"/>
         <lang.language id="angelscript" displayName="AngelScript"/>
-        <!-- Automatically detect and provide AngelScript Script folders as library roots for indexing and navigation -->
-        <additionalLibraryRootsProvider implementation="com.scriptacus.riderunrealangelscript.project.AngelScriptFolderDetector"/>
+        <!-- Automatically detect and register AngelScript Script folders as module content roots -->
+        <!-- Note: Using content roots instead of library roots for proper search prioritization -->
+        <!-- Old approach (library roots - lower priority in search): -->
+        <!-- <additionalLibraryRootsProvider implementation="com.scriptacus.riderunrealangelscript.project.AngelScriptFolderDetector"/> -->
         <!-- Parser and basic syntax highlighter provide immediate highlighting -->
         <lang.parserDefinition language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptParserDefinition"/>
         <lang.syntaxHighlighterFactory language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptSyntaxHighlighterFactory"/>
@@ -93,6 +95,9 @@
 
         <!-- Auto-switch between AngelScript Files and Solution Explorer tool windows -->
         <postStartupActivity implementation="com.scriptacus.riderunrealangelscript.toolwindow.ToolWindowSwitcher"/>
+
+        <!-- Detect and register AngelScript Script folders as module content roots -->
+        <postStartupActivity implementation="com.scriptacus.riderunrealangelscript.project.AngelScriptContentRootProvider"/>
 G    </extensions>
 
     <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
