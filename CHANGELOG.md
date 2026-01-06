@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## 0.9.4 - TBD
+
+### Added
+- **Method Separators**
+  - Visual separators between class methods and functions in the editor
+  - Improves code readability with horizontal lines between method declarations
+  - Automatically enabled for AngelScript files
+
+### Fixed
+- **Parser Error Recovery**
+  - Fixed handling of ternary operators in formatted strings (e.g., `f"{value:condition ? 'Y' : 'N'}"`)
+  - Improved error recovery with pinning on expression start and format separator
+  - Parser now gracefully handles complex format expressions
+
+### Performance
+- **Script Files Tool Window**
+  - Optimized tree cell rendering with 50% reduction in VCS status queries
+  - Single status check per cell instead of separate checks for text and icon
+
 ## 0.9.3 - 2026-01-04
 
 ### Added
