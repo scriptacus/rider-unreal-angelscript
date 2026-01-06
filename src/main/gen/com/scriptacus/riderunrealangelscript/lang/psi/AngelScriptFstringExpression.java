@@ -7,7 +7,7 @@ import com.intellij.psi.PsiElement;
 
 public interface AngelScriptFstringExpression extends PsiElement {
 
-  @NotNull
+  @Nullable
   AngelScriptExpr getExpr();
 
   @Nullable

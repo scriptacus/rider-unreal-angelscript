@@ -28,9 +28,9 @@ public class AngelScriptFstringExpressionImpl extends ASTWrapperPsiElement imple
   }
 
   @Override
-  @NotNull
+  @Nullable
   public AngelScriptExpr getExpr() {
-    return findNotNullChildByClass(AngelScriptExpr.class);
+    return findChildByClass(AngelScriptExpr.class);
   }
 
   @Override

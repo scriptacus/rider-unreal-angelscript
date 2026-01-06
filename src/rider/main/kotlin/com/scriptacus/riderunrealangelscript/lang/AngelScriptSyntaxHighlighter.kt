@@ -202,10 +202,7 @@ class AngelScriptSyntaxHighlighter : SyntaxHighlighter {
                     type == AngelScriptTypes.FSTRING_ESCAPED_LBRACE ||
                     type == AngelScriptTypes.FSTRING_ESCAPED_RBRACE ||
                     type == AngelScriptTypes.FSTRING_EXPR_BEGIN ||
-                    type == AngelScriptTypes.FSTRING_EXPR_END ||
-                    type == AngelScriptTypes.FSTRING_FORMAT_SEP ||
-                    type == AngelScriptTypes.FSTRING_DEBUG_EQ ||
-                    type == AngelScriptTypes.FSTRING_FORMAT_SPEC
+                    type == AngelScriptTypes.FSTRING_EXPR_END
         }
 
         private fun isNameString(type: IElementType): Boolean {

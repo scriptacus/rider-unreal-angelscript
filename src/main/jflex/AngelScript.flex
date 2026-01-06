@@ -21,6 +21,12 @@ import com.intellij.psi.TokenType;
   // This allows us to correctly handle nested braces like {obj[{key: value}]}
   // We only treat } as FSTRING_EXPR_END when braceDepth == 0
   private int fstringBraceDepth = 0;
+
+  // Track parenthesis depth inside f-string expressions
+  // This distinguishes format separators from ternary operators:
+  // - {Val:.2f} → parenDepth=0, colon is format separator
+  // - {(a?b:c)} → parenDepth=1, colon is ternary operator
+  private int fstringParenDepth = 0;
 %}
 
 // ─────────────── Lexer States ───────────────
@@ -237,17 +243,35 @@ STRING = {DQ_STRING}|{SQ_STRING}|{TRIPLE_QUOTE_STRING}
 }
 
 <IN_FSTRING_EXPR> {
-    // Format specifier begins with : or = (only at brace depth 1 - the opening brace)
-    ":" { if (fstringBraceDepth == 1) { yybegin(IN_FSTRING_FORMAT); return AngelScriptTypes.FSTRING_FORMAT_SEP; } else { return AngelScriptTypes.COLON; } }
-    "=" { if (fstringBraceDepth == 1) { yybegin(IN_FSTRING_FORMAT); return AngelScriptTypes.FSTRING_DEBUG_EQ; } else { return AngelScriptTypes.ASSIGNMENT; } }
+    // Format specifier begins with : or = (only at brace depth 1 AND paren depth 0)
+    // This ensures {Val:.2f} has colon as separator, but {(a?b:c)} has colon as ternary
+    ":" {
+        if (fstringBraceDepth == 1 && fstringParenDepth == 0) {
+            yybegin(IN_FSTRING_FORMAT);
+            return AngelScriptTypes.FSTRING_FORMAT_SEP;
+        } else {
+            return AngelScriptTypes.COLON;
+        }
+    }
+
+    // Debug format specifier {val=}
+    "=" {
+        if (fstringBraceDepth == 1 && fstringParenDepth == 0) {
+            yybegin(IN_FSTRING_FORMAT);
+            return AngelScriptTypes.FSTRING_DEBUG_EQ;
+        } else {
+            return AngelScriptTypes.ASSIGNMENT;
+        }
+    }
 
     // Track brace depth for nested expressions (object literals, blocks, etc.)
     "{" { fstringBraceDepth++; return AngelScriptTypes.START_STATEMENT_BLOCK; }
 
-    // End of expression - only when brace depth returns to 1 (matching the opening brace)
+    // End of expression - only when brace depth returns to 0 (matching the opening brace)
     "}" {
         fstringBraceDepth--;
         if (fstringBraceDepth == 0) {
+            fstringParenDepth = 0;  // Reset paren depth when exiting
             yybegin(IN_FSTRING);
             return AngelScriptTypes.FSTRING_EXPR_END;
         } else {
@@ -255,38 +279,77 @@ STRING = {DQ_STRING}|{SQ_STRING}|{TRIPLE_QUOTE_STRING}
         }
     }
 
-    // Parentheses don't affect interpolation boundary, just return tokens
-    "(" { return AngelScriptTypes.OPEN_PARENTHESIS; }
-    ")" { return AngelScriptTypes.CLOSE_PARENTHESIS; }
+    // Parentheses and brackets - track parens for ternary detection
+    "(" { fstringParenDepth++; return AngelScriptTypes.OPEN_PARENTHESIS; }
+    ")" { fstringParenDepth--; return AngelScriptTypes.CLOSE_PARENTHESIS; }
+    "[" { return AngelScriptTypes.OPEN_BRACKET; }
+    "]" { return AngelScriptTypes.CLOSE_BRACKET; }
 
     // Inside expression, use normal tokenization
     {WHITE_SPACE} { return TokenType.WHITE_SPACE; }
     {COMMENT} { return AngelScriptTypes.COMMENT; }
 
-    // All normal tokens can appear in f-string expressions
+    // Scope and member access
     "::" { return AngelScriptTypes.SCOPE; }
     "." { return AngelScriptTypes.DOT; }
-    "[" { return AngelScriptTypes.OPEN_BRACKET; }
-    "]" { return AngelScriptTypes.CLOSE_BRACKET; }
     "," { return AngelScriptTypes.LIST_SEPARATOR; }
 
-    // Operators that can appear in expressions
+    // Compound assignment operators (must come before simple operators)
+    "+=" { return AngelScriptTypes.ADD_ASSIGN; }
+    "-=" { return AngelScriptTypes.SUB_ASSIGN; }
+    "*=" { return AngelScriptTypes.MUL_ASSIGN; }
+    "/=" { return AngelScriptTypes.DIV_ASSIGN; }
+    "%=" { return AngelScriptTypes.MOD_ASSIGN; }
+    "&=" { return AngelScriptTypes.AND_ASSIGN; }
+    "|=" { return AngelScriptTypes.OR_ASSIGN; }
+    "^=" { return AngelScriptTypes.XOR_ASSIGN; }
+    "<<=" { return AngelScriptTypes.SHIFT_LEFT_ASSIGN; }
+    ">>=" { return AngelScriptTypes.SHIFT_RIGHT_L_ASSIGN; }
+    ">>>=" { return AngelScriptTypes.SHIFT_RIGHT_A_ASSIGN; }
+
+    // Comparison and shift operators (must come before < and >)
+    "<<" { return AngelScriptTypes.BIT_SHIFT_LEFT; }
+    ">=" { return AngelScriptTypes.GREATER_THAN_OR_EQUAL; }
+    "<=" { return AngelScriptTypes.LESS_THAN_OR_EQUAL; }
+    "==" { return AngelScriptTypes.EQUAL; }
+    "!=" { return AngelScriptTypes.NOT_EQUAL; }
+
+    // Logical operators
+    "&&" { return AngelScriptTypes.AND; }
+    "||" { return AngelScriptTypes.OR; }
+    "^^" { return AngelScriptTypes.XOR; }
+
+    // Increment/decrement
+    "++" { return AngelScriptTypes.INC; }
+    "--" { return AngelScriptTypes.DEC; }
+
+    // Single-character operators
     "+" { return AngelScriptTypes.PLUS; }
     "-" { return AngelScriptTypes.MINUS; }
     "*" { return AngelScriptTypes.STAR; }
     "/" { return AngelScriptTypes.SLASH; }
     "%" { return AngelScriptTypes.PERCENT; }
+    "=" { return AngelScriptTypes.ASSIGNMENT; }
     "<" { return AngelScriptTypes.LESS_THAN; }
     ">" { return AngelScriptTypes.GREATER_THAN; }
+    "&" { return AngelScriptTypes.AMP; }
+    "|" { return AngelScriptTypes.BIT_OR; }
+    "^" { return AngelScriptTypes.BIT_XOR; }
+    "~" { return AngelScriptTypes.BIT_NOT; }
+    "!" { return AngelScriptTypes.NOT; }
+    "?" { return AngelScriptTypes.QUESTION; }
 
+    // Identifiers, numbers, strings
     {IDENTIFIER} { return AngelScriptTypes.IDENTIFIER; }
     {NUMBER} { return AngelScriptTypes.NUMBER; }
     {STRING} { return AngelScriptTypes.STRING; }
 }
 
+// ─────────────── Format Specifier State ──────────────────────
+
 <IN_FSTRING_FORMAT> {
-    // Format specification characters
-    "}" { yybegin(IN_FSTRING); return AngelScriptTypes.FSTRING_EXPR_END; }
+    // Format specification characters (everything after : or = until })
+    "}" { fstringParenDepth = 0; yybegin(IN_FSTRING); return AngelScriptTypes.FSTRING_EXPR_END; }
     [^}]+ { return AngelScriptTypes.FSTRING_FORMAT_SPEC; }
 }
 

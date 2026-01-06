@@ -702,9 +702,13 @@ fstring_content ::=
   | FSTRING_ESCAPED_RBRACE
   | fstring_expression
 
-fstring_expression ::= FSTRING_EXPR_BEGIN expr fstring_format? FSTRING_EXPR_END
+fstring_expression ::= FSTRING_EXPR_BEGIN expr fstring_format? FSTRING_EXPR_END {
+  pin=1
+}
 
-fstring_format ::= (FSTRING_FORMAT_SEP | FSTRING_DEBUG_EQ) FSTRING_FORMAT_SPEC?
+fstring_format ::= (FSTRING_FORMAT_SEP | FSTRING_DEBUG_EQ) FSTRING_FORMAT_SPEC? {
+  pin=1
+}
 
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -783,7 +787,6 @@ private meta unused_tokens ::=
   | FSTRING_ESCAPED_LBRACE | FSTRING_ESCAPED_RBRACE
   | FSTRING_TEXT | FSTRING_BEGIN | FSTRING_END
   | FSTRING_EXPR_BEGIN | FSTRING_EXPR_END
-  | FSTRING_FORMAT_SEP | FSTRING_DEBUG_EQ | FSTRING_FORMAT_SPEC
   // Name string tokens
   | NAMESTRING_BEGIN | NAMESTRING_END | NAMESTRING_TEXT
   // Preprocessor keywords

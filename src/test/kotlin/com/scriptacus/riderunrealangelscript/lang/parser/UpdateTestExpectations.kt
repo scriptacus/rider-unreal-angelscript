@@ -11,6 +11,8 @@ import java.io.File
 class UpdateTestExpectations : ParsingTestCase("parser", "as", true, AngelScriptParserDefinition()) {
     override fun getTestDataPath() = "src/test/resources"
 
+    override fun includeRanges(): Boolean = true
+
     fun testUpdateCompleteStruct() {
         updateExpectation("advanced/CompleteStruct")
     }
@@ -27,6 +29,14 @@ class UpdateTestExpectations : ParsingTestCase("parser", "as", true, AngelScript
         updateExpectation("declarations/ConstructorVariableDeclaration")
     }
 
+    fun testUpdateFStringWithFormat() {
+        updateExpectation("advanced/fStringWithFormat")
+    }
+
+    fun testUpdateFStringFormatsAndTernary() {
+        updateExpectation("advanced/fStringFormatsAndTernary")
+    }
+
     private fun updateExpectation(testName: String) {
         val testFile = "$testDataPath/testData/parser/$testName.as"
         val expectationFile = "$testDataPath/testData/parser/$testName.txt"
@@ -35,7 +45,7 @@ class UpdateTestExpectations : ParsingTestCase("parser", "as", true, AngelScript
 
         myFile = createFile("test.as", File(testFile).readText())
         ensureParsed(myFile)
-        val psi = toParseTreeText(myFile, false, false)
+        val psi = toParseTreeText(myFile, false, true)
 
         // Check for errors
         if (psi.contains("PsiErrorElement")) {
