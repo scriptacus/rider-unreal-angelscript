@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## 0.9.5 - 2026-01-06
+
+### Added
+- **Improved File Search Priority**
+  - AngelScript files now appear with proper priority in "Navigate to File" (Ctrl+Shift+N)
+  - Script folders registered as module content roots instead of library roots
+  - Files now rank above fuzzy C++ matches when they have exact or better name matches
+  - Automatic detection of Script folders next to .uproject and .uplugin files
+  - Dynamic updates when Script folders are created or deleted
+
+### Performance
+- **Eliminated UI Freezes During Plugin Initialization**
+  - Converted library root detection to async background computation
+  - getAdditionalProjectLibraries() now returns in <10ms (was blocking 2-5 seconds)
+  - VFS traversal 30-50% faster by skipping build/cache directories
+  - Implemented lazy cache pattern to avoid EDT blocking
+  - Added automatic cancellation of stale computations
+
+### Technical
+- Modernized folder detection with Kotlin coroutines
+- Implemented EDT thread safety for module modifications
+- Content roots persist across IDE restarts (stored in .idea/)
+- Defensive logging for cache hits and computation timing
+
 ## 0.9.4 - 2026-01-05
 
 ### Added
