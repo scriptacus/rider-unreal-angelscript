@@ -1,12 +1,19 @@
 package com.scriptacus.riderunrealangelscript.project
 
+import com.intellij.navigation.ItemPresentation
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
-import com.intellij.util.indexing.IndexableSetContributor
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.project.ProjectManagerListener
+import com.intellij.openapi.roots.AdditionalLibraryRootsProvider
+import com.intellij.openapi.roots.ModuleRootEvent
+import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.openapi.roots.SyntheticLibrary
 import com.intellij.openapi.vfs.*
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
@@ -14,17 +21,22 @@ import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.messages.MessageBusConnection
+import com.intellij.openapi.application.runReadAction
+import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import javax.swing.Icon
 
 /**
- * Automatically detects and provides AngelScript Script folders for indexing.
+ * Automatically detects and provides AngelScript Script folders for indexing and navigation.
  *
  * This ensures that Script folders (which follow Unreal Engine conventions) are indexed
  * and available to LSP4IJ even when they're not explicitly part of the Rider project structure.
  *
- * Unlike AdditionalLibraryRootsProvider (which treats folders as read-only library code),
- * IndexableSetContributor adds folders for indexing while preserving full highlighting
- * and external annotator support.
+ * Uses AdditionalLibraryRootsProvider to enable:
+ * - Navigate to File (Ctrl+Shift+N) support
+ * - Full text indexing for search
+ * - LSP integration
+ * - Syntax highlighting and language features
  *
  * Detection strategy:
  * 1. Find all .uproject files → check for <parent>/Script/
@@ -40,33 +52,40 @@ import java.util.concurrent.ConcurrentHashMap
  * - Project plugin AngelScript code
  * - Engine-level plugin AngelScript code
  */
-class AngelScriptFolderDetector : IndexableSetContributor() {
+class AngelScriptFolderDetector : AdditionalLibraryRootsProvider(), Disposable {
     private val LOG = Logger.getInstance(AngelScriptFolderDetector::class.java)
 
     // Thread-safe cache with project-specific listeners
-    private val cache = ConcurrentHashMap<Project, Set<VirtualFile>>()
+    private val cache = ConcurrentHashMap<Project, Collection<SyntheticLibrary>>()
     private val listeners = ConcurrentHashMap<Project, MessageBusConnection>()
-    private val computationInProgress = ConcurrentHashMap<Project, Boolean>()
+    private val cs = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val computationInProgress = ConcurrentHashMap<Project, Job>()
 
-    override fun getAdditionalRootsToIndex(): Set<VirtualFile> {
-        // Not used - we provide project-specific roots instead
-        return emptySet()
-    }
+    override fun getAdditionalProjectLibraries(project: Project): Collection<SyntheticLibrary> {
+        // Check if project is already disposed
+        if (project.isDisposed) {
+            return emptyList()
+        }
 
-    override fun getAdditionalProjectRootsToIndex(project: Project): Set<VirtualFile> {
         // Check cache first
-        cache[project]?.let { cached ->
+        val cached = cache[project]
+        if (cached != null) {
+            LOG.debug("Cache hit for project: ${project.name}, ${cached.size} libraries")
             return cached
         }
+
+        LOG.debug("Cache miss for project: ${project.name}, scheduling background computation")
 
         // Set up listeners for this project if not already done
         setupListeners(project)
 
-        // Don't block EDT with file system traversal - schedule async computation and return empty set for now
+        // Don't block EDT with file system traversal - schedule async computation and return empty list for now
         // The cache will be populated asynchronously and the platform will pick it up on next indexing cycle
-        scheduleBackgroundRecomputation(project)
+        if (!computationInProgress.containsKey(project)) {
+            scheduleBackgroundRecomputation(project)
+        }
 
-        return emptySet()
+        return emptyList()
     }
 
     private fun setupListeners(project: Project) {
@@ -76,6 +95,15 @@ class AngelScriptFolderDetector : IndexableSetContributor() {
 
         val connection = project.messageBus.connect()
         listeners[project] = connection
+
+        // Listen for project close - clean up resources
+        connection.subscribe(ProjectManager.TOPIC, object : ProjectManagerListener {
+            override fun projectClosing(closingProject: Project) {
+                if (closingProject == project) {
+                    cleanupProject(project)
+                }
+            }
+        })
 
         // Listen for dumb mode changes - invalidate cache when smart mode starts
         connection.subscribe(DumbService.DUMB_MODE, object : DumbService.DumbModeListener {
@@ -119,51 +147,76 @@ class AngelScriptFolderDetector : IndexableSetContributor() {
     }
 
     private fun invalidateCache(project: Project) {
-        // Remove cached data
-        cache.remove(project)
+        // Keep old cache until new one is ready (avoid temporary empty results)
+        // Don't remove: cache.remove(project)
 
         // Schedule background recomputation (don't block EDT!)
         scheduleBackgroundRecomputation(project)
     }
 
     private fun scheduleBackgroundRecomputation(project: Project) {
-        // Prevent multiple concurrent computations for same project
-        if (computationInProgress.putIfAbsent(project, true) != null) {
-            LOG.debug("Recomputation already in progress for project: ${project.name}")
-            return // Already computing
+        // Don't schedule if project is already disposed
+        if (project.isDisposed) {
+            return
         }
 
-        ReadAction.nonBlocking<Set<VirtualFile>> {
-            computeScriptFolders(project)
-        }
-        .expireWith(project)
-        .finishOnUiThread(ModalityState.defaultModalityState()) { folders ->
-            cache[project] = folders
-            computationInProgress.remove(project)
+        // Cancel previous computation if still running
+        computationInProgress[project]?.cancel()
 
-            // Note: The platform will automatically detect the changed indexable roots
-            // when getAdditionalProjectRootsToIndex() is called next time
+        LOG.debug("Scheduling background recomputation for project: ${project.name}")
+
+        val job = cs.launch {
+            val startTime = System.currentTimeMillis()
+            val libraries = runReadAction {
+                computeScriptLibraries(project)
+            }
+            val duration = System.currentTimeMillis() - startTime
+
+            LOG.info("Recomputed Script libraries for ${project.name} in ${duration}ms: ${libraries.size} libraries found")
+
+            // Check disposal before EDT dispatch to prevent deadlock during shutdown
+            if (!project.isDisposed) {
+                try {
+                    withContext(Dispatchers.Main) {
+                        cache[project] = libraries
+                        computationInProgress.remove(project)
+
+                        // Notify platform that library roots have changed so it can re-index
+                        LOG.debug("Notifying platform of library changes for project: ${project.name}")
+                        ProjectRootManager.getInstance(project).incModificationCount()
+                    }
+                } catch (e: Exception) {
+                    // Gracefully handle EDT dispatch failures (e.g., during shutdown)
+                    LOG.warn("Failed to update cache for project ${project.name}: ${e.message}")
+                    computationInProgress.remove(project)
+                }
+            } else {
+                // Project was disposed during computation - clean up
+                LOG.debug("Project ${project.name} disposed during computation, skipping cache update")
+                computationInProgress.remove(project)
+            }
         }
-        .submit(AppExecutorUtil.getAppExecutorService())
+
+        computationInProgress[project] = job
     }
 
-    private fun computeScriptFolders(project: Project): Set<VirtualFile> {
+    private fun computeScriptLibraries(project: Project): Collection<SyntheticLibrary> {
         // Avoid circular dependency during indexing
         if (DumbService.isDumb(project)) {
-            return emptySet()
+            return emptyList()
         }
 
         val basePath = project.basePath
         if (basePath == null) {
             LOG.warn("Project has no base path, cannot detect Script folders")
-            return emptySet()
+            return emptyList()
         }
 
         // Use VirtualFileManager directly to avoid circular dependency with projectScope()
         val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath")
         if (baseDir == null) {
             LOG.warn("Cannot find base directory at: $basePath")
-            return emptySet()
+            return emptyList()
         }
 
         val scriptFolders = mutableSetOf<VirtualFile>()
@@ -173,6 +226,11 @@ class AngelScriptFolderDetector : IndexableSetContributor() {
             override fun visitFile(file: VirtualFile): Boolean {
                 // Support cancellation of long-running operations
                 ProgressManager.checkCanceled()
+
+                // Skip common non-source directories for performance
+                if (file.isDirectory && file.name in SKIP_DIRS) {
+                    return false
+                }
 
                 // Check for .uproject or .uplugin files
                 if (!file.isDirectory && (file.extension == "uproject" || file.extension == "uplugin")) {
@@ -191,10 +249,74 @@ class AngelScriptFolderDetector : IndexableSetContributor() {
 
         if (scriptFolders.isEmpty()) {
             LOG.info("No AngelScript Script folders found")
+            return emptyList()
         } else {
             scriptFolders.forEach { LOG.info("  - ${it.path}") }
         }
 
-        return scriptFolders
+        // Convert VirtualFile folders to SyntheticLibrary instances
+        return scriptFolders.map { folder ->
+            AngelScriptSyntheticLibrary(folder)
+        }
+    }
+
+    /**
+     * Represents an AngelScript Script folder as a synthetic library.
+     * This makes the files visible in Navigate to File and available for indexing.
+     */
+    private class AngelScriptSyntheticLibrary(
+        private val sourceRoot: VirtualFile
+    ) : SyntheticLibrary(), ItemPresentation {
+
+        override fun getSourceRoots(): Collection<VirtualFile> = listOf(sourceRoot)
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is AngelScriptSyntheticLibrary) return false
+            return sourceRoot == other.sourceRoot
+        }
+
+        override fun hashCode(): Int = sourceRoot.hashCode()
+
+        // ItemPresentation for Project View display
+        override fun getPresentableText(): String = "AngelScript: ${sourceRoot.name}"
+
+        override fun getLocationString(): String = sourceRoot.path
+
+        override fun getIcon(unused: Boolean): Icon? = null
+    }
+
+    private fun cleanupProject(project: Project) {
+        LOG.debug("Cleaning up resources for project: ${project.name}")
+        computationInProgress.remove(project)?.cancel()
+        listeners.remove(project)?.disconnect()
+        cache.remove(project)
+        LOG.debug("Cleaned up resources for project: ${project.name}")
+    }
+
+    override fun dispose() {
+        LOG.info("Disposing AngelScriptFolderDetector")
+        computationInProgress.values.forEach { it.cancel() }
+        computationInProgress.clear()
+        listeners.values.forEach { it.disconnect() }
+        listeners.clear()
+        cache.clear()
+        cs.cancel()
+        LOG.info("AngelScriptFolderDetector disposed successfully")
+    }
+
+    companion object {
+        // Directories to skip during VFS traversal for performance
+        private val SKIP_DIRS = setOf(
+            ".git",
+            "node_modules",
+            "Binaries",
+            "Intermediate",
+            "Saved",
+            ".idea",
+            "DerivedDataCache",
+            ".vs",
+            ".vscode"
+        )
     }
 }

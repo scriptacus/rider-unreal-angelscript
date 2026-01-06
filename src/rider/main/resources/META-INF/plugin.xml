@@ -21,8 +21,8 @@
     <extensions defaultExtensionNs="com.intellij">
         <fileType name="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptFileType" language="angelscript" extensions="as;ash"/>
         <lang.language id="angelscript" displayName="AngelScript"/>
-        <!-- Automatically detect and index AngelScript Script folders (preserves full highlighting) -->
-        <indexedRootsProvider implementation="com.scriptacus.riderunrealangelscript.project.AngelScriptFolderDetector"/>
+        <!-- Automatically detect and provide AngelScript Script folders as library roots for indexing and navigation -->
+        <additionalLibraryRootsProvider implementation="com.scriptacus.riderunrealangelscript.project.AngelScriptFolderDetector"/>
         <!-- Parser and basic syntax highlighter provide immediate highlighting -->
         <lang.parserDefinition language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptParserDefinition"/>
         <lang.syntaxHighlighterFactory language="angelscript" implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptSyntaxHighlighterFactory"/>
