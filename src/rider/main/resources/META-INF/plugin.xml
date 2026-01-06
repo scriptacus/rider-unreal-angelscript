@@ -47,6 +47,9 @@
         <!-- Code formatter for Format Code action and auto-formatting -->
         <lang.formatter language="angelscript"
                         implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptFormattingModelBuilder"/>
+        <!-- Method separators: visual separators between functions/methods -->
+        <codeInsight.lineMarkerProvider language="angelscript"
+                                        implementationClass="com.scriptacus.riderunrealangelscript.lang.AngelScriptMethodSeparatorProvider"/>
 
         <!-- Navigation handler: filters excluded files and provides C++ navigation -->
         <gotoDeclarationHandler
