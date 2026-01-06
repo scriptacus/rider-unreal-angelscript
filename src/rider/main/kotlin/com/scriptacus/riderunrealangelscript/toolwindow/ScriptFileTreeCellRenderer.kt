@@ -3,13 +3,13 @@ package com.scriptacus.riderunrealangelscript.toolwindow
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
-import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.FileStatus
 import com.intellij.openapi.vcs.FileStatusManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.SimpleTextAttributes
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.scriptacus.riderunrealangelscript.AngelScriptIcons
 import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
@@ -98,14 +98,17 @@ class ScriptFileTreeCellRenderer(
     }
 
     private fun loadStatusAsync(file: VirtualFile) {
-        // Load status on background thread
+        // Load status on background thread with coalescing to prevent too many concurrent requests
         ReadAction.nonBlocking(Callable {
             FileStatusManager.getInstance(project).getStatus(file)
-        }).finishOnUiThread(ModalityState.defaultModalityState()) { status ->
-            // Cache result
-            statusCache[file] = status
-            // Repaint tree to show color
-            tree.repaint()
-        }.submit(AppExecutorUtil.getAppExecutorService())
+        })
+            .coalesceBy(this, file)  // Coalesce duplicate requests for the same file
+            .finishOnUiThread(ModalityState.defaultModalityState()) { status ->
+                // Cache result
+                statusCache[file] = status
+                // Repaint tree to show color
+                tree.repaint()
+            }
+            .submit(AppExecutorUtil.getAppExecutorService())
     }
 }
