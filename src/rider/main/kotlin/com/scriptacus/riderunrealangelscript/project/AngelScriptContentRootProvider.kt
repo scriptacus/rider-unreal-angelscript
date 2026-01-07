@@ -3,7 +3,6 @@ package com.scriptacus.riderunrealangelscript.project
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.module.ModuleManager
-import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ModuleRootModificationUtil
@@ -77,46 +76,7 @@ class AngelScriptContentRootProvider : ProjectActivity {
     }
 
     private fun detectScriptFolders(project: Project): List<VirtualFile> {
-        val basePath = project.basePath
-        if (basePath == null) {
-            LOG.warn("Project has no base path, cannot detect Script folders")
-            return emptyList()
-        }
-
-        val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath")
-        if (baseDir == null) {
-            LOG.warn("Cannot find base directory at: $basePath")
-            return emptyList()
-        }
-
-        val scriptFolders = mutableSetOf<VirtualFile>()
-
-        // Visit all files recursively using VFS API
-        VfsUtil.visitChildrenRecursively(baseDir, object : VirtualFileVisitor<Unit>() {
-            override fun visitFile(file: VirtualFile): Boolean {
-                // Support cancellation of long-running operations
-                ProgressManager.checkCanceled()
-
-                // Skip common non-source directories for performance
-                if (file.isDirectory && file.name in SKIP_DIRS) {
-                    return false
-                }
-
-                // Check for .uproject or .uplugin files
-                if (!file.isDirectory && (file.extension == "uproject" || file.extension == "uplugin")) {
-                    val parentDir = file.parent
-                    if (parentDir != null) {
-                        val scriptFolder = parentDir.findChild("Script")
-                        if (scriptFolder != null && scriptFolder.isDirectory) {
-                            scriptFolders.add(scriptFolder)
-                        }
-                    }
-                }
-                return true
-            }
-        })
-
-        return scriptFolders.toList()
+        return ScriptFolderDetector.detectScriptFolders(project)
     }
 
     private fun findMainModule(project: Project) = ModuleManager.getInstance(project)
@@ -248,18 +208,4 @@ class AngelScriptContentRootProvider : ProjectActivity {
         )
     }
 
-    companion object {
-        // Directories to skip during VFS traversal for performance
-        private val SKIP_DIRS = setOf(
-            ".git",
-            "node_modules",
-            "Binaries",
-            "Intermediate",
-            "Saved",
-            ".idea",
-            "DerivedDataCache",
-            ".vs",
-            ".vscode"
-        )
-    }
 }

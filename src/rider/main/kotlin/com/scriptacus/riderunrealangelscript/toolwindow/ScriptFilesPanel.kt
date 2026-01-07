@@ -359,22 +359,26 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
         val isBaseDirScriptFolder = (baseDir.name == "Script")
 
         if (!isBaseDirScriptFolder) {
-            // Normal case: search for .uproject/.uplugin files with Script folders
-            VfsUtil.visitChildrenRecursively(baseDir, object : VirtualFileVisitor<Unit>() {
-                override fun visitFile(file: VirtualFile): Boolean {
-                    if (!file.isDirectory && (file.extension == "uproject" || file.extension == "uplugin")) {
-                        val parentDir = file.parent
-                        if (parentDir != null) {
-                            val scriptFolder = parentDir.findChild("Script")
-                            if (scriptFolder != null && scriptFolder.isDirectory && containsAngelScriptFiles(scriptFolder)) {
-                                allProjectFiles.add(ProjectFileInfo(file, scriptFolder))
-                                scriptFolders.add(scriptFolder)
-                            }
+            // Use ScriptFolderDetector for efficient lookup
+            val detectedFolders = com.scriptacus.riderunrealangelscript.project.ScriptFolderDetector.detectScriptFolders(project)
+
+            // Build ProjectFileInfo list - need to find the .uproject/.uplugin file for each Script folder
+            for (scriptFolder in detectedFolders) {
+                // Only include if it contains .as files
+                if (containsAngelScriptFiles(scriptFolder)) {
+                    val parent = scriptFolder.parent
+                    if (parent != null) {
+                        // Find the .uproject or .uplugin file in parent
+                        val projectFile = parent.children.firstOrNull {
+                            it.extension == "uproject" || it.extension == "uplugin"
+                        }
+                        if (projectFile != null) {
+                            allProjectFiles.add(ProjectFileInfo(projectFile, scriptFolder))
+                            scriptFolders.add(scriptFolder)
                         }
                     }
-                    return true
                 }
-            })
+            }
         }
 
         // Find the .uproject file(s)
