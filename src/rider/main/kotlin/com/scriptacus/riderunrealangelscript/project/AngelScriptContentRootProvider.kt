@@ -3,6 +3,7 @@ package com.scriptacus.riderunrealangelscript.project
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.module.ModuleManager
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ModuleRootModificationUtil
@@ -32,6 +33,9 @@ import java.util.concurrent.ConcurrentHashMap
  * - Project AngelScript code
  * - Project plugin AngelScript code
  * - Engine-level plugin AngelScript code
+ *
+ * Performance: Defers Script folder detection until indexing completes to avoid
+ * querying FilenameIndex before it's ready.
  */
 class AngelScriptContentRootProvider : ProjectActivity {
     private val LOG = Logger.getInstance(AngelScriptContentRootProvider::class.java)
@@ -42,13 +46,16 @@ class AngelScriptContentRootProvider : ProjectActivity {
     override suspend fun execute(project: Project) {
         LOG.info("AngelScriptContentRootProvider initializing for project: ${project.name}")
 
-        // Initial detection and registration
-        detectAndRegisterScriptFolders(project)
-
-        // Set up VFS listener for dynamic detection
-        setupVfsListener(project)
-
-        LOG.info("AngelScriptContentRootProvider initialization complete")
+        // Run Script folder detection in background to avoid EDT violations
+        com.intellij.openapi.application.ReadAction.nonBlocking<Unit> {
+            detectAndRegisterScriptFolders(project)
+        }
+            .inSmartMode(project)
+            .finishOnUiThread(com.intellij.openapi.application.ModalityState.defaultModalityState()) {
+                setupVfsListener(project)
+                LOG.info("AngelScriptContentRootProvider initialization complete")
+            }
+            .submit(com.intellij.util.concurrency.AppExecutorUtil.getAppExecutorService())
     }
 
     private fun detectAndRegisterScriptFolders(project: Project) {

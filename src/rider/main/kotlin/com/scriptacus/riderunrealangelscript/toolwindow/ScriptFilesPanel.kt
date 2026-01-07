@@ -19,6 +19,7 @@ import com.intellij.openapi.vfs.newvfs.events.*
 import com.intellij.ui.TreeUIHelper
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
+import com.scriptacus.riderunrealangelscript.project.ScriptFolderDetector
 import com.scriptacus.riderunrealangelscript.toolwindow.actions.*
 import java.awt.BorderLayout
 import java.awt.event.ActionEvent
@@ -321,9 +322,12 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
     private fun loadScriptFolders() {
         rootNode.removeAllChildren()
         scriptFolders.clear()
+        rootNode.add(DefaultMutableTreeNode("Loading..."))
+        treeModel.reload()
 
         val basePath = project.basePath
         if (basePath == null) {
+            rootNode.removeAllChildren()
             rootNode.add(DefaultMutableTreeNode("No project base path"))
             treeModel.reload()
             return
@@ -331,10 +335,27 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath")
         if (baseDir == null) {
+            rootNode.removeAllChildren()
             rootNode.add(DefaultMutableTreeNode("Cannot find project directory"))
             treeModel.reload()
             return
         }
+
+        // Run the Script folder detection in a background read action
+        // to avoid EDT violations when querying FilenameIndex
+        com.intellij.openapi.application.ReadAction.nonBlocking<List<VirtualFile>> {
+            ScriptFolderDetector.detectScriptFolders(project)
+        }
+            .inSmartMode(project)
+            .finishOnUiThread(com.intellij.openapi.application.ModalityState.defaultModalityState()) { detectedFolders ->
+                buildTreeFromDetectedFolders(baseDir, detectedFolders)
+            }
+            .submit(com.intellij.util.concurrency.AppExecutorUtil.getAppExecutorService())
+    }
+
+    private fun buildTreeFromDetectedFolders(baseDir: VirtualFile, detectedFolders: List<VirtualFile>) {
+        rootNode.removeAllChildren()
+        scriptFolders.clear()
 
         // Categorize Script folders by location
         data class ScriptInfo(
@@ -359,9 +380,6 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
         val isBaseDirScriptFolder = (baseDir.name == "Script")
 
         if (!isBaseDirScriptFolder) {
-            // Use ScriptFolderDetector for efficient lookup
-            val detectedFolders = com.scriptacus.riderunrealangelscript.project.ScriptFolderDetector.detectScriptFolders(project)
-
             // Build ProjectFileInfo list - need to find the .uproject/.uplugin file for each Script folder
             for (scriptFolder in detectedFolders) {
                 // Only include if it contains .as files
@@ -530,6 +548,8 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private fun containsAngelScriptFiles(directory: VirtualFile): Boolean {
+        // Simple directory check - can't use FilenameIndex on EDT
+        // This is acceptable for tool window since it only loads when user explicitly opens it
         var hasAngelScript = false
 
         VfsUtil.visitChildrenRecursively(directory, object : VirtualFileVisitor<Unit>() {
