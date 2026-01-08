@@ -92,6 +92,28 @@ class AngelScriptSyntaxHighlighter : SyntaxHighlighter {
         val UNREAL_MACRO = createTextAttributesKey("ANGELSCRIPT_UNREAL_MACRO", DefaultLanguageHighlighterColors.METADATA)
         val PREPROCESSOR = createTextAttributesKey("ANGELSCRIPT_PREPROCESSOR", DefaultLanguageHighlighterColors.METADATA)
 
+        // Semantic highlighting from LSP (when connected to Unreal Engine)
+        val SEMANTIC_NAMESPACE = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_NAMESPACE", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_TYPENAME = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TYPENAME", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_TYPENAME_ACTOR = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TYPENAME_ACTOR", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_TYPENAME_COMPONENT = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TYPENAME_COMPONENT", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_TYPENAME_STRUCT = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TYPENAME_STRUCT", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_TYPENAME_EVENT = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TYPENAME_EVENT", DefaultLanguageHighlighterColors.INTERFACE_NAME)
+        val SEMANTIC_TYPENAME_DELEGATE = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TYPENAME_DELEGATE", DefaultLanguageHighlighterColors.INTERFACE_NAME)
+        val SEMANTIC_TYPENAME_PRIMITIVE = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TYPENAME_PRIMITIVE", DefaultLanguageHighlighterColors.KEYWORD)
+        val SEMANTIC_TEMPLATE_BASE_TYPE = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_TEMPLATE_BASE_TYPE", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_MEMBER_FUNCTION = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_MEMBER_FUNCTION", DefaultLanguageHighlighterColors.INSTANCE_METHOD)
+        val SEMANTIC_GLOBAL_FUNCTION = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_GLOBAL_FUNCTION", DefaultLanguageHighlighterColors.STATIC_METHOD)
+        val SEMANTIC_PARAMETER = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_PARAMETER", DefaultLanguageHighlighterColors.PARAMETER)
+        val SEMANTIC_LOCAL_VARIABLE = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_LOCAL_VARIABLE", DefaultLanguageHighlighterColors.LOCAL_VARIABLE)
+        val SEMANTIC_MEMBER_VARIABLE = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_MEMBER_VARIABLE", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
+        val SEMANTIC_GLOBAL_VARIABLE = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_GLOBAL_VARIABLE", DefaultLanguageHighlighterColors.STATIC_FIELD)
+        val SEMANTIC_MEMBER_ACCESSOR = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_MEMBER_ACCESSOR", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
+        val SEMANTIC_GLOBAL_ACCESSOR = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_GLOBAL_ACCESSOR", DefaultLanguageHighlighterColors.STATIC_FIELD)
+        val SEMANTIC_ACCESS_SPECIFIER = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_ACCESS_SPECIFIER", DefaultLanguageHighlighterColors.KEYWORD)
+        val SEMANTIC_UNIMPORTED_SYMBOL = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_UNIMPORTED_SYMBOL", DefaultLanguageHighlighterColors.IDENTIFIER)
+        val SEMANTIC_UNKNOWN_ERROR = createTextAttributesKey("ANGELSCRIPT_SEMANTIC_UNKNOWN_ERROR", DefaultLanguageHighlighterColors.IDENTIFIER)
+
         private fun isUnrealMacro(type: IElementType): Boolean {
             return type == AngelScriptTypes.UPROPERTY ||
                     type == AngelScriptTypes.UFUNCTION ||
