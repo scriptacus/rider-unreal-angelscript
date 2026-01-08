@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## 0.9.7 - 2026-01-07
+
+### Added
+- **Granular Semantic Token Color Customization**
+  - All 19 LSP semantic token types now customizable in color scheme settings
+  - Distinguish actor/component/struct/event/delegate types with independent colors
+  - Color settings organized into collapsible groups for easier navigation
+  - Settings preview shows semantic highlighting without requiring Unreal Engine connection
+
+### Performance
+- Fixed "Slow operations prohibited on EDT" errors during plugin startup
+- Script folder detection and tool window loading now run in background threads
+- No more UI freezes during indexing or plugin initialization
+
 ## 0.9.6 - 2026-01-07
 
 ### Fixed
