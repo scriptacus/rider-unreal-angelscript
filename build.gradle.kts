@@ -75,6 +75,19 @@ grammarKit {
     tasks.register<GenerateLexerTask>("generateAngelScriptLexer") {
         sourceFile.set(file("src/main/jflex/AngelScript.flex"))
         targetOutputDir.set(file("src/main/gen/com/scriptacus/riderunrealangelscript/lang/lexer"))
+
+        doLast {
+            // Normalize line endings to LF (required for cross-platform consistency)
+            fileTree("src/main/gen").matching {
+                include("**/*.java")
+            }.forEach { file ->
+                val content = file.readText()
+                val normalized = content.replace("\r\n", "\n")
+                if (content != normalized) {
+                    file.writeText(normalized)
+                }
+            }
+        }
     }
     tasks.register<GenerateParserTask>("generateAngelScriptParser") {
         dependsOn("generateAngelScriptLexer")
@@ -82,6 +95,19 @@ grammarKit {
         targetRootOutputDir.set(file("src/main/gen"))
         pathToParser.set("com/scriptacus/riderunrealangelscript/lang/parser")
         pathToPsiRoot.set("com/scriptacus/riderunrealangelscript/lang/psi")
+
+        doLast {
+            // Normalize line endings to LF (required for cross-platform consistency)
+            fileTree("src/main/gen").matching {
+                include("**/*.java")
+            }.forEach { file ->
+                val content = file.readText()
+                val normalized = content.replace("\r\n", "\n")
+                if (content != normalized) {
+                    file.writeText(normalized)
+                }
+            }
+        }
     }
 }
 

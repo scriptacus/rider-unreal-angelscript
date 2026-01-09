@@ -10,6 +10,7 @@ class AngelScriptAdvancedParsingTest : AngelScriptParsingTestBase("parser/advanc
     fun testFStringWithExpression() = doTest(true)
     fun testFStringFunctionCall() = doTest(true)  // Test f-strings with function calls (paren-depth tracking)
     fun testFStringMultiExpressionUserCase() = doTest(true)  // User-reported: multi-expression f-strings
+    fun testFStringIncrementalEdit() = doTest(true)  // Test incremental lexing edge cases
     fun testFStringWithFormat() = doTest(true)  // Test format specifiers like {val:.2f}
     fun testFStringFormatsAndTernary() = doTest(true)  // Comprehensive test of formats vs ternary operators
     fun testNameLiteral() = doTest(true)

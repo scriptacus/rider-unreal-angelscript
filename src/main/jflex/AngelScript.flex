@@ -240,6 +240,7 @@ STRING = {DQ_STRING}|{SQ_STRING}|{TRIPLE_QUOTE_STRING}
     "{" { fstringBraceDepth = 1; yybegin(IN_FSTRING_EXPR); return AngelScriptTypes.FSTRING_EXPR_BEGIN; }
     "\"" { fstringBraceDepth = 0; yybegin(YYINITIAL); return AngelScriptTypes.FSTRING_END; }
     [^{}\"]+ { return AngelScriptTypes.FSTRING_TEXT; }
+    [^] { return TokenType.BAD_CHARACTER; }
 }
 
 <IN_FSTRING_EXPR> {
@@ -343,6 +344,9 @@ STRING = {DQ_STRING}|{SQ_STRING}|{TRIPLE_QUOTE_STRING}
     {IDENTIFIER} { return AngelScriptTypes.IDENTIFIER; }
     {NUMBER} { return AngelScriptTypes.NUMBER; }
     {STRING} { return AngelScriptTypes.STRING; }
+
+    // Catch-all for any other character
+    [^] { return TokenType.BAD_CHARACTER; }
 }
 
 // ─────────────── Format Specifier State ──────────────────────
