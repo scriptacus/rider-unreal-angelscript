@@ -174,36 +174,28 @@ class ScriptFilesPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     private fun performRename() {
         val fileNode = getSelectedFileNode() ?: return
-        val dataContext = SimpleDataContext.builder()
-            .add(CommonDataKeys.PROJECT, project)
-            .build()
-        val event = AnActionEvent(
-            dataContext,
-            Presentation(),
-            ActionPlaces.UNKNOWN,
-            ActionUiKind.NONE,
-            null,
-            0,
-            ActionManager.getInstance()
+        RenameFileAction(fileNode.file).actionPerformed(
+            AnActionEvent.createFromDataContext(
+                "Tree",
+                null,
+                SimpleDataContext.builder()
+                    .add(CommonDataKeys.PROJECT, project)
+                    .build()
+            )
         )
-        RenameFileAction(fileNode.file).actionPerformed(event)
     }
 
     private fun performDelete() {
         val fileNode = getSelectedFileNode() ?: return
-        val dataContext = SimpleDataContext.builder()
-            .add(CommonDataKeys.PROJECT, project)
-            .build()
-        val event = AnActionEvent(
-            dataContext,
-            Presentation(),
-            ActionPlaces.UNKNOWN,
-            ActionUiKind.NONE,
-            null,
-            0,
-            ActionManager.getInstance()
+        DeleteFileAction(fileNode.file).actionPerformed(
+            AnActionEvent.createFromDataContext(
+                "Tree",
+                null,
+                SimpleDataContext.builder()
+                    .add(CommonDataKeys.PROJECT, project)
+                    .build()
+            )
         )
-        DeleteFileAction(fileNode.file).actionPerformed(event)
     }
 
     private fun getSelectedFileNode(): FileNode? {
