@@ -37,6 +37,10 @@ class UpdateTestExpectations : ParsingTestCase("parser", "as", true, AngelScript
         updateExpectation("advanced/fStringFormatsAndTernary")
     }
 
+    fun testUpdateUClassMacroWithMultilineStrings() {
+        updateExpectation("unreal/uClassMacroWithMultilineStrings")
+    }
+
     private fun updateExpectation(testName: String) {
         val testFile = "$testDataPath/testData/parser/$testName.as"
         val expectationFile = "$testDataPath/testData/parser/$testName.txt"

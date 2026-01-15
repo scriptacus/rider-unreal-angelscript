@@ -56,7 +56,7 @@ DECIMAL_FLOAT = {FLOAT_WITH_DECIMAL}|{FLOAT_WITH_EXPONENT}
 NUMBER = {HEX_LITERAL}|{BINARY_LITERAL}|{OCTAL_LITERAL}|{DECIMAL_FLOAT}|{DECIMAL_INTEGER}
 
 // Regular strings
-DQ_STRING  = \"([^\"\\\r\n]|\\.)*\"
+DQ_STRING  = \"([^\"\\]|\\.)*\"
 SQ_STRING = \'([^\'\\\r\n]|\\.)*\'
 TRIPLE_QUOTE_STRING= \"\"\"([^\"]|\"[^\"]|\"\"[^\"]|\\.)*\"\"\"
 STRING = {DQ_STRING}|{SQ_STRING}|{TRIPLE_QUOTE_STRING}

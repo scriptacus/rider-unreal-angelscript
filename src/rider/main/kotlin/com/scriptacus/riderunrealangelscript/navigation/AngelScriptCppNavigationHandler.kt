@@ -170,16 +170,15 @@ class AngelScriptCppNavigationHandler : GotoDeclarationHandler {
                 ?: return false
 
             // Check if any of the returned locations are in excluded directories
-            val locations = when (result) {
-                is org.eclipse.lsp4j.Location -> listOf(result)
-                is List<*> -> result.mapNotNull { it as? org.eclipse.lsp4j.Location }
-                is org.eclipse.lsp4j.jsonrpc.messages.Either<*, *> -> {
-                    result.left?.let { listOf(it as org.eclipse.lsp4j.Location) }
-                        ?: result.right?.let { (it as List<*>).mapNotNull { loc -> loc as? org.eclipse.lsp4j.Location } }
-                        ?: emptyList()
-                }
-                else -> emptyList()
+            // The result is Either<List<Location>, List<LocationLink>>
+            val locationsAny: List<*> = if (result.isLeft) {
+                // Left side: List<Location>
+                result.left as? List<*> ?: emptyList<Any>()
+            } else {
+                // Right side: List<LocationLink> - we ignore these since we only need URIs
+                emptyList<Any>()
             }
+            val locations: List<org.eclipse.lsp4j.Location> = locationsAny.mapNotNull { it as? org.eclipse.lsp4j.Location }
 
             // Check each location against ignore patterns
             for (location in locations) {
