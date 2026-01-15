@@ -79,6 +79,10 @@ public class AngelScriptVisitor extends PsiElementVisitor {
     visitPsiElement(o);
   }
 
+  public void visitCallExpression(@NotNull AngelScriptCallExpression o) {
+    visitPsiElement(o);
+  }
+
   public void visitCaseClause(@NotNull AngelScriptCaseClause o) {
     visitPsiElement(o);
   }
@@ -112,10 +116,6 @@ public class AngelScriptVisitor extends PsiElementVisitor {
   }
 
   public void visitClassPropertyDecl(@NotNull AngelScriptClassPropertyDecl o) {
-    visitPsiElement(o);
-  }
-
-  public void visitConstructorCall(@NotNull AngelScriptConstructorCall o) {
     visitPsiElement(o);
   }
 
@@ -216,10 +216,6 @@ public class AngelScriptVisitor extends PsiElementVisitor {
   }
 
   public void visitFunctionBody(@NotNull AngelScriptFunctionBody o) {
-    visitPsiElement(o);
-  }
-
-  public void visitFunctionCall(@NotNull AngelScriptFunctionCall o) {
     visitPsiElement(o);
   }
 

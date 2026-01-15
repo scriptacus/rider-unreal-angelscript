@@ -29,14 +29,14 @@ public class AngelScriptPrimaryExprImpl extends AngelScriptExprImpl implements A
 
   @Override
   @Nullable
-  public AngelScriptCastExpression getCastExpression() {
-    return findChildByClass(AngelScriptCastExpression.class);
+  public AngelScriptCallExpression getCallExpression() {
+    return findChildByClass(AngelScriptCallExpression.class);
   }
 
   @Override
   @Nullable
-  public AngelScriptConstructorCall getConstructorCall() {
-    return findChildByClass(AngelScriptConstructorCall.class);
+  public AngelScriptCastExpression getCastExpression() {
+    return findChildByClass(AngelScriptCastExpression.class);
   }
 
   @Override

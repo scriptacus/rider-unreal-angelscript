@@ -241,7 +241,7 @@ access_entry ::= access_level? access_class
 
 access_level ::= PRIVATE | PROTECTED | PUBLIC
 
-access_class ::= (IDENTIFIER | STAR | function_call) access_modifiers?
+access_class ::= (IDENTIFIER | STAR | call_expression) access_modifiers?
 
 access_modifiers ::= OPEN_PARENTHESIS access_modifier (LIST_SEPARATOR access_modifier)* CLOSE_PARENTHESIS
 
@@ -647,7 +647,7 @@ primary_expr ::=
   | fstring_literal                                                   // Unreal extension
   | namestring_literal                                                // Unreal extension
   | cast_expression                                                   // BNF:12 CAST
-  | constructor_call                                                  // BNF:11 CONSTRUCTCALL (must come before scoped_identifier)
+  | call_expression                                                   // BNF:11-12 CONSTRUCTCALL/FUNCCALL
   | scoped_identifier                                                 // BNF:12 VARACCESS
   | OPEN_PARENTHESIS expr CLOSE_PARENTHESIS                           // BNF:11 parenthesized expression
   
@@ -659,13 +659,10 @@ primary_expr ::=
 // BNF:12: CAST ::= 'cast' '<' TYPE '>' '(' ASSIGN ')'
 cast_expression ::= CAST LESS_THAN typename GREATER_THAN OPEN_PARENTHESIS expr CLOSE_PARENTHESIS
 
-// BNF:11: CONSTRUCTCALL ::= TYPE ARGLIST
-// Note: Constructor call looks like Type(args), including template types like TArray<int>()
-constructor_call ::= typename OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS {pin=2}
-
-// BNF:12: FUNCCALL ::= SCOPE IDENTIFIER ARGLIST
-// Note: Parsed as scoped_identifier + postfix_op (function call)
-function_call ::= scoped_identifier OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS
+// BNF:11-12: Call expression (function call or constructor call)
+// Covers both CONSTRUCTCALL (TYPE ARGLIST) and FUNCCALL (SCOPE IDENTIFIER ARGLIST)
+// Semantic distinction provided by LSP type resolution
+call_expression ::= (typename | scoped_identifier) OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS {pin=2}
 
 // BNF:13: ARGLIST ::= '(' [IDENTIFIER ':'] ASSIGN {',' [IDENTIFIER ':'] ASSIGN} ')'
 // Note: Supports named arguments (Identifier: value) and trailing commas

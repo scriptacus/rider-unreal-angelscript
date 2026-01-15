@@ -11,6 +11,6 @@ public interface AngelScriptAccessClass extends PsiElement {
   AngelScriptAccessModifiers getAccessModifiers();
 
   @Nullable
-  AngelScriptFunctionCall getFunctionCall();
+  AngelScriptCallExpression getCallExpression();
 
 }

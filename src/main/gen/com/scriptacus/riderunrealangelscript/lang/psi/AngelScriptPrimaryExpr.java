@@ -8,10 +8,10 @@ import com.intellij.psi.PsiElement;
 public interface AngelScriptPrimaryExpr extends AngelScriptExpr {
 
   @Nullable
-  AngelScriptCastExpression getCastExpression();
+  AngelScriptCallExpression getCallExpression();
 
   @Nullable
-  AngelScriptConstructorCall getConstructorCall();
+  AngelScriptCastExpression getCastExpression();
 
   @Nullable
   AngelScriptExpr getExpr();

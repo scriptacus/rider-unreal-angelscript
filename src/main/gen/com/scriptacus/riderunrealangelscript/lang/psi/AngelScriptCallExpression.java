@@ -5,12 +5,15 @@ import java.util.List;
 import org.jetbrains.annotations.*;
 import com.intellij.psi.PsiElement;
 
-public interface AngelScriptConstructorCall extends PsiElement {
+public interface AngelScriptCallExpression extends PsiElement {
 
   @Nullable
   AngelScriptArgumentList getArgumentList();
 
-  @NotNull
+  @Nullable
+  AngelScriptScopedIdentifier getScopedIdentifier();
+
+  @Nullable
   AngelScriptTypename getTypename();
 
 }

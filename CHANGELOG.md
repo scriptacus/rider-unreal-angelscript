@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 - Fixed parsing errors when UCLASS/UPROPERTY/UFUNCTION macro attributes contain multi-line strings
+- Unified constructor and function calls into single `call_expression` PSI node, removing parser ambiguity
 
 ## 0.9.8 - 2026-01-09
 

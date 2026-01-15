@@ -119,7 +119,7 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // (IDENTIFIER | STAR | function_call) access_modifiers?
+  // (IDENTIFIER | STAR | call_expression) access_modifiers?
   public static boolean access_class(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "access_class")) return false;
     boolean result_;
@@ -130,13 +130,13 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
     return result_;
   }
 
-  // IDENTIFIER | STAR | function_call
+  // IDENTIFIER | STAR | call_expression
   private static boolean access_class_0(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "access_class_0")) return false;
     boolean result_;
     result_ = consumeToken(builder_, IDENTIFIER);
     if (!result_) result_ = consumeToken(builder_, STAR);
-    if (!result_) result_ = function_call(builder_, level_ + 1);
+    if (!result_) result_ = call_expression(builder_, level_ + 1);
     return result_;
   }
 
@@ -474,6 +474,37 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // (typename | scoped_identifier) OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS
+  public static boolean call_expression(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "call_expression")) return false;
+    boolean result_, pinned_;
+    Marker marker_ = enter_section_(builder_, level_, _NONE_, CALL_EXPRESSION, "<call expression>");
+    result_ = call_expression_0(builder_, level_ + 1);
+    result_ = result_ && consumeToken(builder_, OPEN_PARENTHESIS);
+    pinned_ = result_; // pin = 2
+    result_ = result_ && report_error_(builder_, call_expression_2(builder_, level_ + 1));
+    result_ = pinned_ && consumeToken(builder_, CLOSE_PARENTHESIS) && result_;
+    exit_section_(builder_, level_, marker_, result_, pinned_, null);
+    return result_ || pinned_;
+  }
+
+  // typename | scoped_identifier
+  private static boolean call_expression_0(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "call_expression_0")) return false;
+    boolean result_;
+    result_ = typename(builder_, level_ + 1);
+    if (!result_) result_ = scoped_identifier(builder_, level_ + 1);
+    return result_;
+  }
+
+  // argument_list?
+  private static boolean call_expression_2(PsiBuilder builder_, int level_) {
+    if (!recursion_guard_(builder_, level_, "call_expression_2")) return false;
+    argument_list(builder_, level_ + 1);
+    return true;
+  }
+
+  /* ********************************************************** */
   // case_statement | default_case_statement
   public static boolean case_clause(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "case_clause")) return false;
@@ -703,28 +734,6 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   private static boolean class_property_decl_2(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "class_property_decl_2")) return false;
     access_specifier(builder_, level_ + 1);
-    return true;
-  }
-
-  /* ********************************************************** */
-  // typename OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS
-  public static boolean constructor_call(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "constructor_call")) return false;
-    boolean result_, pinned_;
-    Marker marker_ = enter_section_(builder_, level_, _NONE_, CONSTRUCTOR_CALL, "<constructor call>");
-    result_ = typename(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, OPEN_PARENTHESIS);
-    pinned_ = result_; // pin = 2
-    result_ = result_ && report_error_(builder_, constructor_call_2(builder_, level_ + 1));
-    result_ = pinned_ && consumeToken(builder_, CLOSE_PARENTHESIS) && result_;
-    exit_section_(builder_, level_, marker_, result_, pinned_, null);
-    return result_ || pinned_;
-  }
-
-  // argument_list?
-  private static boolean constructor_call_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "constructor_call_2")) return false;
-    argument_list(builder_, level_ + 1);
     return true;
   }
 
@@ -1278,28 +1287,6 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   private static boolean function_body_1(PsiBuilder builder_, int level_) {
     if (!recursion_guard_(builder_, level_, "function_body_1")) return false;
     consumeToken(builder_, END_STATEMENT_BLOCK);
-    return true;
-  }
-
-  /* ********************************************************** */
-  // scoped_identifier OPEN_PARENTHESIS argument_list? CLOSE_PARENTHESIS
-  public static boolean function_call(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "function_call")) return false;
-    if (!nextTokenIs(builder_, "<function call>", IDENTIFIER, SCOPE)) return false;
-    boolean result_;
-    Marker marker_ = enter_section_(builder_, level_, _NONE_, FUNCTION_CALL, "<function call>");
-    result_ = scoped_identifier(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, OPEN_PARENTHESIS);
-    result_ = result_ && function_call_2(builder_, level_ + 1);
-    result_ = result_ && consumeToken(builder_, CLOSE_PARENTHESIS);
-    exit_section_(builder_, level_, marker_, result_, false, null);
-    return result_;
-  }
-
-  // argument_list?
-  private static boolean function_call_2(PsiBuilder builder_, int level_) {
-    if (!recursion_guard_(builder_, level_, "function_call_2")) return false;
-    argument_list(builder_, level_ + 1);
     return true;
   }
 
@@ -2965,7 +2952,7 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
   //   | fstring_literal                                                   // Unreal extension
   //   | namestring_literal                                                // Unreal extension
   //   | cast_expression                                                   // BNF:12 CAST
-  //   | constructor_call                                                  // BNF:11 CONSTRUCTCALL (must come before scoped_identifier)
+  //   | call_expression                                                   // BNF:11-12 CONSTRUCTCALL/FUNCCALL
   //   | scoped_identifier                                                 // BNF:12 VARACCESS
   //   | OPEN_PARENTHESIS expr CLOSE_PARENTHESIS
   public static boolean primary_expr(PsiBuilder builder_, int level_) {
@@ -2981,7 +2968,7 @@ public class AngelScriptParser implements PsiParser, LightPsiParser {
     if (!result_) result_ = fstring_literal(builder_, level_ + 1);
     if (!result_) result_ = namestring_literal(builder_, level_ + 1);
     if (!result_) result_ = cast_expression(builder_, level_ + 1);
-    if (!result_) result_ = constructor_call(builder_, level_ + 1);
+    if (!result_) result_ = call_expression(builder_, level_ + 1);
     if (!result_) result_ = scoped_identifier(builder_, level_ + 1);
     if (!result_) result_ = primary_expr_11(builder_, level_ + 1);
     exit_section_(builder_, level_, marker_, result_, false, null);

@@ -25,6 +25,7 @@ public interface AngelScriptTypes {
   IElementType BITWISE_OR_EXPR = new AngelScriptElementType("BITWISE_OR_EXPR");
   IElementType BITWISE_XOR_EXPR = new AngelScriptElementType("BITWISE_XOR_EXPR");
   IElementType BREAK_STATEMENT = new AngelScriptElementType("BREAK_STATEMENT");
+  IElementType CALL_EXPRESSION = new AngelScriptElementType("CALL_EXPRESSION");
   IElementType CASE_CLAUSE = new AngelScriptElementType("CASE_CLAUSE");
   IElementType CASE_STATEMENT = new AngelScriptElementType("CASE_STATEMENT");
   IElementType CAST_EXPRESSION = new AngelScriptElementType("CAST_EXPRESSION");
@@ -34,7 +35,6 @@ public interface AngelScriptTypes {
   IElementType CLASS_MEMBER = new AngelScriptElementType("CLASS_MEMBER");
   IElementType CLASS_METHOD_DECL = new AngelScriptElementType("CLASS_METHOD_DECL");
   IElementType CLASS_PROPERTY_DECL = new AngelScriptElementType("CLASS_PROPERTY_DECL");
-  IElementType CONSTRUCTOR_CALL = new AngelScriptElementType("CONSTRUCTOR_CALL");
   IElementType CONSTRUCTOR_DECL = new AngelScriptElementType("CONSTRUCTOR_DECL");
   IElementType CONTINUE_STATEMENT = new AngelScriptElementType("CONTINUE_STATEMENT");
   IElementType DEFAULT_CASE_STATEMENT = new AngelScriptElementType("DEFAULT_CASE_STATEMENT");
@@ -60,7 +60,6 @@ public interface AngelScriptTypes {
   IElementType FSTRING_FORMAT = new AngelScriptElementType("FSTRING_FORMAT");
   IElementType FSTRING_LITERAL = new AngelScriptElementType("FSTRING_LITERAL");
   IElementType FUNCTION_BODY = new AngelScriptElementType("FUNCTION_BODY");
-  IElementType FUNCTION_CALL = new AngelScriptElementType("FUNCTION_CALL");
   IElementType FUNCTION_DECL = new AngelScriptElementType("FUNCTION_DECL");
   IElementType FUNCTION_QUALIFIER = new AngelScriptElementType("FUNCTION_QUALIFIER");
   IElementType FUNCTION_QUALIFIERS = new AngelScriptElementType("FUNCTION_QUALIFIERS");
@@ -313,6 +312,9 @@ public interface AngelScriptTypes {
       else if (type == BREAK_STATEMENT) {
         return new AngelScriptBreakStatementImpl(node);
       }
+      else if (type == CALL_EXPRESSION) {
+        return new AngelScriptCallExpressionImpl(node);
+      }
       else if (type == CASE_CLAUSE) {
         return new AngelScriptCaseClauseImpl(node);
       }
@@ -339,9 +341,6 @@ public interface AngelScriptTypes {
       }
       else if (type == CLASS_PROPERTY_DECL) {
         return new AngelScriptClassPropertyDeclImpl(node);
-      }
-      else if (type == CONSTRUCTOR_CALL) {
-        return new AngelScriptConstructorCallImpl(node);
       }
       else if (type == CONSTRUCTOR_DECL) {
         return new AngelScriptConstructorDeclImpl(node);
@@ -414,9 +413,6 @@ public interface AngelScriptTypes {
       }
       else if (type == FUNCTION_BODY) {
         return new AngelScriptFunctionBodyImpl(node);
-      }
-      else if (type == FUNCTION_CALL) {
-        return new AngelScriptFunctionCallImpl(node);
       }
       else if (type == FUNCTION_DECL) {
         return new AngelScriptFunctionDeclImpl(node);

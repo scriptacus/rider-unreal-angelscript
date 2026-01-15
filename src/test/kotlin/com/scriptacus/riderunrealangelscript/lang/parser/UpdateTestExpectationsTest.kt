@@ -1,93 +1,61 @@
 package com.scriptacus.riderunrealangelscript.lang.parser
 
-import com.intellij.testFramework.ParsingTestCase
-import com.scriptacus.riderunrealangelscript.lang.AngelScriptParserDefinition
 import java.io.File
 
 /**
  * Utility to regenerate test expectation files after grammar changes.
  *
  * Usage: Run this as a JUnit test with working directory set to project root.
+ *
+ * This uses the EXACT same code path as actual tests (extends AngelScriptParsingTestBase,
+ * uses loadFile()) to ensure expectations match test behavior.
  */
-class UpdateTestExpectationsTest : ParsingTestCase("parser", "as", true, AngelScriptParserDefinition()) {
-    override fun getTestDataPath(): String = "src/test/resources/testData"
-
-    private fun generateExpectation(dir: String, testName: String) {
-        val inputFile = "$testName.as"
-        val outputFile = "$testName.txt"
-
-        myFile = createFile(inputFile, loadFile("$dir/$inputFile"))
-        ensureParsed(myFile)
-        val psiTree = toParseTreeText(myFile, false, true).trim()
-
-        val outputPath = File(getTestDataPath(), "parser/$dir/$outputFile")
-        outputPath.writeText(psiTree)
-        println("Updated: parser/$dir/$outputFile")
-    }
+class UpdateTestExpectationsTest : AngelScriptParsingTestBase("parser") {
 
     fun testGenerateAllExpectations() {
-        val tests = mapOf(
-            "basic" to listOf(
-                "BlockComment", "LineComment", "Namespace", "NumericLiterals",
-                "PrimitiveTypes", "SimpleFunction", "SimpleVariable", "StringLiterals"
-            ),
-            "advanced" to listOf(
-                "CompleteClass", "CompleteStruct", "FStringFunctionCall",
-                "FStringMultiExpressionUserCase", "FStringSimple", "FStringWithExpression",
-                "FStringWithFormat", "NameLiteral", "NameStringUserCase",
-                "PreprocessorIfEditor", "PreprocessorIfTest", "PreprocessorNested"
-            ),
-            "declarations" to listOf(
-                "AssetWithBody", "DefaultParameters", "Destructor", "FunctionQualifiers",
-                "ReferenceParameters", "StructConstructor", "TrailingCommaParameters"
-            ),
-            "expressions" to listOf(
-                "ArrayAccess", "BinaryOperations", "BitwiseOperators", "CastExpression",
-                "CompoundAssignment", "ConstructorCall", "FunctionCall", "MethodCall",
-                "NamedArguments", "NestedTemplates", "ScopedIdentifier", "ShiftOperators",
-                "TemplateType", "TernaryExpression", "UnaryOperations", "ExpressionPrecedence"
-            ),
-            "statements" to listOf(
-                "BreakContinue", "Fallthrough", "ForeachLoop", "ForLoop",
-                "IfElseStatement", "IfStatement", "ReturnStatement",
-                "StatementBlock", "SwitchStatement", "WhileLoop"
-            ),
-            "unreal" to listOf(
-                "AccessDeclaration", "AccessDeclarationComplex", "AssetDeclaration",
-                "ClassInheritance", "DefaultStatement", "DelegateDeclaration",
-                "EventDeclaration", "MixinFunction",
-                "StructConstructorCopy", "StructConstructorWithUproperty",
-                "UClassMacro", "UEnumMacro", "UFunctionMacro", "UMetaMacro",
-                "UPropertyMacro", "UPropertyMacroAdvanced", "UStructMacro"
-            ),
-            "errorRecovery" to listOf(
-                "comprehensiveErrors", "EnumValueErrors", "expressionErrors",
-                "IncompleteBlock", "IncompleteControlFlow", "incompleteDeclarations",
-                "MissingSemicolon", "MultipleErrors", "parameterErrors",
-                "StructErrors", "templateErrors", "testControlFlowCascade"
-            )
-        )
+        val testDataDir = File("$testDataPath/parser/")
+        val updated = mutableListOf<String>()
+        val failed = mutableListOf<String>()
 
-        var successCount = 0
-        var failCount = 0
-
-        tests.forEach { (dir, testNames) ->
-            println("\n=== Processing $dir ===")
-            testNames.forEach { testName ->
+        testDataDir.walkTopDown()
+            .filter { it.extension == "as" }
+            .forEach { asFile ->
+                val relativePath = asFile.relativeTo(testDataDir).path.removeSuffix(".as").replace('\\', '/')
                 try {
-                    generateExpectation(dir, testName)
-                    successCount++
+                    updateExpectation(relativePath)
+                    updated.add(relativePath)
                 } catch (e: Exception) {
-                    println("ERROR generating $dir/$testName: ${e.message}")
-                    e.printStackTrace()
-                    failCount++
+                    failed.add("$relativePath: ${e.message}")
+                    println("ERROR updating $relativePath: ${e.message}")
                 }
             }
+
+        println("\nSummary:")
+        println("Updated: ${updated.size} files")
+        println("Failed: ${failed.size} files")
+        if (failed.isNotEmpty()) {
+            println("\nFailed files:")
+            failed.forEach { println("  $it") }
+        }
+    }
+
+    private fun updateExpectation(testName: String) {
+        val expectationFile = "$testDataPath/parser/$testName.txt"
+
+        println("Updating expectation for $testName")
+
+        // Use the EXACT same code path as doTest() - parseFile with loadFile
+        parseFile(testName, loadFile("$testName.as"))
+        val psi = toParseTreeText(myFile, false, true)
+
+        if (psi.contains("PsiErrorElement")) {
+            println("WARNING: PSI contains errors for $testName")
+            val errorLines = psi.lines().filter { it.contains("PsiErrorElement") }
+            errorLines.forEach { println("  $it") }
         }
 
-        println("\n=== Summary ===")
-        println("Success: $successCount")
-        println("Failed: $failCount")
-        println("Total: ${successCount + failCount}")
+        // Write PSI output exactly as-is (do NOT trim - doTest() doesn't trim either)
+        File(expectationFile).writeBytes(psi.toByteArray(Charsets.UTF_8))
+        println("Updated $expectationFile")
     }
 }

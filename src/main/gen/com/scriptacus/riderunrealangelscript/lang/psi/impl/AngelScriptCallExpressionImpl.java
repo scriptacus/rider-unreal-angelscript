@@ -11,14 +11,14 @@ import static com.scriptacus.riderunrealangelscript.lang.psi.AngelScriptTypes.*;
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import com.scriptacus.riderunrealangelscript.lang.psi.*;
 
-public class AngelScriptConstructorCallImpl extends ASTWrapperPsiElement implements AngelScriptConstructorCall {
+public class AngelScriptCallExpressionImpl extends ASTWrapperPsiElement implements AngelScriptCallExpression {
 
-  public AngelScriptConstructorCallImpl(@NotNull ASTNode node) {
+  public AngelScriptCallExpressionImpl(@NotNull ASTNode node) {
     super(node);
   }
 
   public void accept(@NotNull AngelScriptVisitor visitor) {
-    visitor.visitConstructorCall(this);
+    visitor.visitCallExpression(this);
   }
 
   @Override
@@ -34,9 +34,15 @@ public class AngelScriptConstructorCallImpl extends ASTWrapperPsiElement impleme
   }
 
   @Override
-  @NotNull
+  @Nullable
+  public AngelScriptScopedIdentifier getScopedIdentifier() {
+    return findChildByClass(AngelScriptScopedIdentifier.class);
+  }
+
+  @Override
+  @Nullable
   public AngelScriptTypename getTypename() {
-    return findNotNullChildByClass(AngelScriptTypename.class);
+    return findChildByClass(AngelScriptTypename.class);
   }
 
 }
